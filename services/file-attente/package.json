@@ -1,0 +1,34 @@
+{
+  "name": "@ticketrush/file-attente",
+  "version": "0.1.0",
+  "private": true,
+  "description": "File d'attente virtuelle : entrée contrôlée, position, admission et jetons d'accès signés",
+  "type": "module",
+  "main": "./dist/main.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.2.12",
+    "@nestjs/core": "^11.2.12",
+    "@nestjs/platform-express": "^11.2.12",
+    "ioredis": "^6.1.0",
+    "jose": "^6.2.18",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "^11.2.12",
+    "@types/express": "^5.0.6",
+    "@types/supertest": "^7.2.1",
+    "supertest": "^7.3.2",
+    "testcontainers": "^12.2.2"
+  }
+}
