@@ -1,0 +1,23 @@
+# Dépendances
+node_modules/
+
+# Builds
+dist/
+build/
+*.tsbuildinfo
+coverage/
+
+# Environnement et secrets (ne jamais versionner)
+.env
+.env.*
+!.env.example
+
+# Journaux
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Systèmes et éditeurs
+.DS_Store
+Thumbs.db
+.idea/
