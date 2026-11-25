@@ -1,5 +1,5 @@
 {
-  "id": "c5863faa-a0dc-48cf-81aa-33010a5b676d",
+  "id": "e77789de-2633-4313-ad94-92060626f7e4",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -77,12 +77,48 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
+        "billet_reservation_id_unique": {
+          "name": "billet_reservation_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["reservation_id"]
+        },
         "billet_place_unique": {
           "name": "billet_place_unique",
           "nullsNotDistinct": false,
           "columns": ["evenement_id", "siege_id"]
         }
       },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "reservation.categorie": {
+      "name": "categorie",
+      "schema": "reservation",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "evenement_id": {
+          "name": "evenement_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "prix_centimes": {
+          "name": "prix_centimes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -95,6 +131,12 @@
           "name": "id",
           "type": "uuid",
           "primaryKey": true,
+          "notNull": true
+        },
+        "ordre": {
+          "name": "ordre",
+          "type": "bigserial",
+          "primaryKey": false,
           "notNull": true
         },
         "topic": {
@@ -146,14 +188,14 @@
           "name": "outbox_a_publier_idx",
           "columns": [
             {
-              "expression": "cree_le",
+              "expression": "ordre",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             }
           ],
           "isUnique": false,
-          "where": "\"reservation\".\"outbox\".\"publie_le\" IS NULL",
+          "where": "publie_le IS NULL",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -187,6 +229,38 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "siege_id": {
+          "name": "siege_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "prix_centimes": {
+          "name": "prix_centimes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bloque_jusqua": {
+          "name": "bloque_jusqua",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "statut": {
+          "name": "statut",
+          "type": "statut_reservation",
+          "typeSchema": "reservation",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'en_attente_paiement'"
+        },
+        "paiement_id": {
+          "name": "paiement_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "cree_le": {
           "name": "cree_le",
@@ -286,9 +360,36 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "siege_blocages_idx": {
+          "name": "siege_blocages_idx",
+          "columns": [
+            {
+              "expression": "bloque_jusqua",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "statut = 'bloque'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "siege_categorie_id_categorie_id_fk": {
+          "name": "siege_categorie_id_categorie_id_fk",
+          "tableFrom": "siege",
+          "tableTo": "categorie",
+          "schemaTo": "reservation",
+          "columnsFrom": ["categorie_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -302,6 +403,11 @@
     }
   },
   "enums": {
+    "reservation.statut_reservation": {
+      "name": "statut_reservation",
+      "schema": "reservation",
+      "values": ["en_attente_paiement", "payee", "expiree", "a_rembourser"]
+    },
     "reservation.statut_siege": {
       "name": "statut_siege",
       "schema": "reservation",

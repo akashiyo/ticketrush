@@ -6,6 +6,7 @@
  */
 import { sql } from "drizzle-orm";
 import {
+  bigserial,
   check,
   index,
   integer,
@@ -21,6 +22,24 @@ export const schemaReservation = pgSchema("reservation");
 
 export const statutSiege = schemaReservation.enum("statut_siege", ["libre", "bloque", "vendu"]);
 
+export const statutReservation = schemaReservation.enum("statut_reservation", [
+  "en_attente_paiement",
+  "payee",
+  "expiree",
+  "a_rembourser",
+]);
+
+/**
+ * Tarif de chaque catégorie, recopié depuis le Catalogue (aujourd'hui : données de démonstration ;
+ * plus tard : événements EvenementPublie et TarifModifie). La Réservation n'interroge jamais le
+ * schéma d'un autre module (ADR 002).
+ */
+export const categorie = schemaReservation.table("categorie", {
+  id: uuid("id").primaryKey(),
+  evenementId: uuid("evenement_id").notNull(),
+  prixCentimes: integer("prix_centimes").notNull(),
+});
+
 /** Une place à vendre. Une ligne par place, numérotée ou en placement libre (fosse). */
 export const siege = schemaReservation.table(
   "siege",
@@ -29,7 +48,9 @@ export const siege = schemaReservation.table(
     evenementId: uuid("evenement_id").notNull(),
     /** Recopié ici pour remplir l'enveloppe des événements sans lire un autre schéma (ADR 002). */
     organisationId: uuid("organisation_id").notNull(),
-    categorieId: uuid("categorie_id").notNull(),
+    categorieId: uuid("categorie_id")
+      .notNull()
+      .references(() => categorie.id),
     /** Numéro affiché (« A-12 ») ; null en placement libre. */
     numero: text("numero"),
     statut: statutSiege("statut").notNull().default("libre"),
@@ -43,6 +64,10 @@ export const siege = schemaReservation.table(
   (t) => [
     // Recherche d'une place libre en placement libre (ADR 003).
     index("siege_disponibilite_idx").on(t.evenementId, t.categorieId, t.statut),
+    // Recherche des blocages expirés par le worker d'expiration.
+    index("siege_blocages_idx")
+      .on(t.bloqueJusqua)
+      .where(sql`statut = 'bloque'`),
     // Une place bloquée a une réservation et une échéance ; une place vendue, une réservation.
     check(
       "siege_statut_coherent",
@@ -53,11 +78,17 @@ export const siege = schemaReservation.table(
   ],
 );
 
-/** Une réservation : l'acheteur et les places qu'il a bloquées. */
+/** Une réservation : un acheteur, la place qu'il a bloquée, son prix, son paiement. */
 export const reservation = schemaReservation.table("reservation", {
   id: uuid("id").primaryKey(),
   evenementId: uuid("evenement_id").notNull(),
   acheteurId: text("acheteur_id").notNull(),
+  siegeId: uuid("siege_id").notNull(),
+  /** Prix figé au moment du blocage : l'acheteur paie le prix affiché. */
+  prixCentimes: integer("prix_centimes").notNull(),
+  bloqueJusqua: timestamp("bloque_jusqua", { withTimezone: true }).notNull(),
+  statut: statutReservation("statut").notNull().default("en_attente_paiement"),
+  paiementId: text("paiement_id"),
   creeLe: timestamp("cree_le", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -72,6 +103,7 @@ export const billet = schemaReservation.table(
       .references(() => siege.id),
     reservationId: uuid("reservation_id")
       .notNull()
+      .unique()
       .references(() => reservation.id),
     acheteurId: text("acheteur_id").notNull(),
     prixCentimes: integer("prix_centimes").notNull(),
@@ -86,6 +118,8 @@ export const outbox = schemaReservation.table(
   "outbox",
   {
     id: uuid("id").primaryKey(),
+    /** Ordre d'écriture : le relais publie dans cet ordre (deux événements d'une même transaction). */
+    ordre: bigserial("ordre", { mode: "number" }).notNull(),
     topic: text("topic").notNull(),
     /** Clé de partition : l'identifiant de l'événement (le spectacle). */
     cle: text("cle").notNull(),
@@ -99,7 +133,7 @@ export const outbox = schemaReservation.table(
   },
   (t) => [
     index("outbox_a_publier_idx")
-      .on(t.creeLe)
-      .where(sql`${t.publieLe} IS NULL`),
+      .on(t.ordre)
+      .where(sql`publie_le IS NULL`),
   ],
 );

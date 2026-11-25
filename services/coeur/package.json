@@ -23,15 +23,20 @@
     "@ticketrush/contrats": "workspace:*",
     "drizzle-orm": "^0.45.4",
     "jose": "^6.2.18",
+    "kafkajs": "^2.2.4",
     "pg": "^8.23.1",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.2"
+    "rxjs": "^7.8.2",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@nestjs/testing": "^11.2.12",
+    "@types/express": "^5.0.6",
     "@types/pg": "^8.23.1",
+    "@types/supertest": "^7.2.1",
     "dependency-cruiser": "^18.9.0",
     "drizzle-kit": "^0.31.11",
+    "supertest": "^7.3.2",
     "testcontainers": "^12.2.2"
   }
 }

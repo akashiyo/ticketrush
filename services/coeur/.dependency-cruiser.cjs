@@ -43,7 +43,7 @@ module.exports = {
         "ADR 002 : un module n'utilise un autre module que par son dossier api/. " +
         "Ses classes internes restent invisibles. (src/test/ : utilitaires des tests.)",
       severity: "error",
-      from: { path: "^src/([^/]+)/" },
+      from: { path: "^src/([^/]+)/", pathNot: "^src/test/" },
       to: {
         path: "^src/([^/]+)/",
         pathNot: ["^src/$1/", "^src/[^/]+/api/", "^src/commun/", "^src/test/"],
