@@ -17,11 +17,14 @@ workspace "TicketRush" "Billetterie à forte affluence pour concerts et événem
         ticketrush = softwareSystem "TicketRush" "Catalogue, file d'attente virtuelle, réservation des places, paiement, émission des billets, back-office et analytique des organisateurs."
 
         paiement = softwareSystem "Prestataire de paiement" "Autorise et débite les paiements par carte. Simulé et volontairement instable dans le projet." "Externe"
+        email = softwareSystem "Service d'envoi d'e-mails" "Remet les billets par e-mail. Fonctionnalité non prioritaire." "Externe,NonPrioritaire"
 
         acheteur -> ticketrush "Cherche un événement, entre dans la file, réserve, paie, reçoit son billet"
         organisateur -> ticketrush "Publie ses événements et tarifs, suit ses ventes"
         exploitant -> ticketrush "Consulte le tableau de bord de la vente, règle le débit d'admission"
         ticketrush -> paiement "Demande le paiement d'une réservation"
+        ticketrush -> email "Demande l'envoi du billet"
+        email -> acheteur "Lui remet son billet"
     }
 
     views {
@@ -43,6 +46,9 @@ workspace "TicketRush" "Billetterie à forte affluence pour concerts et événem
             element "Externe" {
                 background #999999
                 color #ffffff
+            }
+            element "NonPrioritaire" {
+                border dashed
             }
         }
     }

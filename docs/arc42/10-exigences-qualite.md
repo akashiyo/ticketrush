@@ -87,15 +87,32 @@ Vérifié par : seuils k6 ; SLO « Réservation » (ADR 018). Décisions : ADR 0
 
 | Partie        | Contenu                                                                                     |
 | ------------- | ------------------------------------------------------------------------------------------- |
-| Source        | Visiteurs du catalogue                                                                      |
-| Stimulus      | Recherchent par date, lieu ou artiste                                                       |
+| Source        | Acheteurs                                                                                   |
+| Stimulus      | Recherchent leur événement par date, lieu ou artiste, avant d'entrer dans la file           |
 | Artefact      | Catalogue : modèle de lecture (Meilisearch) et cache                                        |
-| Environnement | Pendant le test de charge du sujet (50 000 acheteurs virtuels), une partie cherche dans le catalogue en même temps |
+| Environnement | Test de charge du sujet (50 000 acheteurs virtuels, 5 000 places) : chaque acheteur fait au moins une recherche avant d'entrer dans la file, pendant que les acheteurs déjà admis réservent |
 | Réponse       | Résultats renvoyés sans solliciter la base qui protège le stock                             |
 | Mesure        | Recherche en **< 300 ms au p99** ; p99 de la réservation dégradé de **moins de 10 %**        |
 
 Vérifié par : test k6 avec et sans trafic de recherche ; SLO « Recherche » (ADR 018).
 Décisions : ADR 014, 015.
+
+### P-4 — Performance : fraîcheur du dashboard en direct (proposé)
+
+| Partie        | Contenu                                                                                     |
+| ------------- | ------------------------------------------------------------------------------------------- |
+| Source        | Organisateur qui suit sa vente                                                              |
+| Stimulus      | Un billet est émis (événement `BilletEmis`)                                                 |
+| Artefact      | Outbox du Cœur, Redpanda, Analytique, dashboard en direct (SSE)                             |
+| Environnement | Pic de la vente, fonctionnement normal (l'Analytique n'est pas arrêtée)                     |
+| Réponse       | La vente apparaît dans le dashboard de l'organisateur                                       |
+| Mesure        | **95 %** des ventes visibles dans le dashboard en **< 5 s**                                  |
+
+Ne pas confondre avec D-2 : D-2 mesure le **rattrapage** après un arrêt de l'Analytique (< 5 min),
+P-4 la **fraîcheur** en fonctionnement normal (< 5 s).
+
+Vérifié par : SLO « Fraîcheur de l'analytique » (ADR 018), écart entre l'heure d'émission du billet et
+son arrivée dans les agrégats. Décisions : ADR 006, 007, 019.
 
 ### E-1 — Équité : ordre d'admission
 
@@ -175,7 +192,7 @@ Vérifié par : test automatisé avec défi absent, invalide ou réutilisé. Dé
 | Partie        | Contenu                                                                                              |
 | ------------- | ---------------------------------------------------------------------------------------------------- |
 | Source        | Attaquant ou acheteur malhonnête                                                                     |
-| Stimulus      | Présente au Cœur un jeton falsifié, expiré, déjà utilisé, ou émis pour un autre acheteur             |
+| Stimulus      | Présente au Cœur un jeton falsifié, expiré, déjà utilisé, émis pour un autre acheteur (`sub`) ou pour une autre vente (`evt`) |
 | Artefact      | Cœur (vérification du jeton d'admission)                                                             |
 | Environnement | Pic de la vente                                                                                      |
 | Réponse       | Réservation refusée                                                                                  |
@@ -208,23 +225,6 @@ Vérifié par : test automatique en CI. Décisions : ADR 010, 016.
 | Mesure        | **100 %** des modifications ont leur ligne d'audit (qui, quoi, quand, avant, après) ; **0** modification ou suppression possible du journal par le rôle applicatif |
 
 Vérifié par : test automatique en CI. Décisions : ADR 016.
-
-### P-4 — Performance : fraîcheur du dashboard en direct (proposé)
-
-| Partie        | Contenu                                                                                     |
-| ------------- | ------------------------------------------------------------------------------------------- |
-| Source        | Organisateur qui suit sa vente                                                              |
-| Stimulus      | Un billet est émis (événement `BilletEmis`)                                                 |
-| Artefact      | Outbox du Cœur, Redpanda, Analytique, dashboard en direct (SSE)                             |
-| Environnement | Pic de la vente, fonctionnement normal (l'Analytique n'est pas arrêtée)                     |
-| Réponse       | La vente apparaît dans le dashboard de l'organisateur                                       |
-| Mesure        | **95 %** des ventes visibles dans le dashboard en **< 5 s**                                  |
-
-Ne pas confondre avec D-2 : D-2 mesure le **rattrapage** après un arrêt de l'Analytique (< 5 min),
-P-4 la **fraîcheur** en fonctionnement normal (< 5 s).
-
-Vérifié par : SLO « Fraîcheur de l'analytique » (ADR 018), écart entre l'heure d'émission du billet et
-son arrivée dans les agrégats. Décisions : ADR 006, 007, 019.
 
 ### O-1 — Observabilité : diagnostiquer une réservation lente
 
@@ -288,6 +288,9 @@ Vérifié par : une pull request de test avec un import interdit volontaire. Dé
   reprend exactement l'objectif de son scénario.
 - **Q3 — Autres pannes en soutenance.** Le comité peut arrêter un autre service que l'Analytique
   (le Cœur, la File d'attente, Redis). Faut-il un scénario par cas, par exemple « une instance du
-  Cœur arrêtée : la vente continue sur l'autre » ?
-- **Q4 — Remise du billet.** Le billet est-il seulement affiché dans l'application, ou aussi envoyé
-  par e-mail ? Dans le second cas, un service d'e-mail apparaît dans le contexte C4.
+  Cœur arrêtée : la vente continue sur l'autre » ? **Reportée.**
+- ~~**Q4 — Remise du billet.**~~ **Résolue** : le billet est affiché dans l'application et envoyé
+  par e-mail. L'envoi est **non prioritaire** : service d'e-mail externe dans le contexte C4
+  (section 3), branché plus tard comme consommateur de `BilletEmis`.
+- ~~**Détail de P-3.**~~ **Résolu** : chaque acheteur fait au moins une recherche avant d'entrer
+  dans la file.

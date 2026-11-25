@@ -23,6 +23,8 @@ bout en bout : catalogue → réservation → paiement simulé → billet) et qu
 | File d'attente virtuelle           | 2      | Entrée contrôlée, position, jetons signés, anti-robots, anti-doublons |
 | Analytique temps réel et fiabilité | 3      | Flux de ventes, dashboard en direct, budgets d'erreur, post-mortem   |
 
+Prévu mais non prioritaire : l'envoi du billet par e-mail, en plus de son affichage dans l'application.
+
 Hors périmètre : le module « Réservation et paiement » complet (saga, compensations) et le module
 « Revente et billets infalsifiables ». La réservation et le paiement simulé restent dans le squelette.
 
@@ -34,8 +36,8 @@ la [section 10](10-exigences-qualite.md).
 | Priorité | Qualité                      | Ce que cela veut dire pour TicketRush                                                     | Scénarios      |
 | -------- | ---------------------------- | ----------------------------------------------------------------------------------------- | -------------- |
 | 1        | **Cohérence du stock**       | Zéro survente, quelle que soit la charge, même si le code a un bug                        | C-1            |
-| 2        | **Performance au pic**       | L'entrée dans la file et la réservation restent rapides à l'ouverture                     | P-1, P-2, P-3  |
-| 3        | **Disponibilité, résilience** | La panne du paiement ou de l'analytique n'arrête pas la vente et ne perd aucun événement | D-1, D-2       |
+| 2        | **Performance au pic**       | L'entrée dans la file, la recherche et la réservation restent rapides à l'ouverture ; le dashboard des organisateurs reste à jour | P-1 à P-4 |
+| 3        | **Disponibilité, résilience** | La panne du paiement ou de l'analytique n'arrête pas la vente et ne perd aucun événement | D-1 à D-3      |
 | 4        | **Équité et sécurité**       | Ordre d'admission juste, robots refusés, jetons infalsifiables, organisateurs isolés      | E-1, S-1 à S-4 |
 | 5        | **Exploitabilité, évolutivité** | On voit ce qui se passe pendant la vente ; on démarre et on étend le système facilement | O-1, M-1 à M-3 |
 
