@@ -17,4 +17,7 @@
 | 9   | Décisions                                     | [../adr/liste-adr.md](../adr/liste-adr.md)                 | 22 ADR      |
 | 10  | Exigences de qualité : arbre d'utilité, scénarios | [10-exigences-qualite.md](10-exigences-qualite.md)     | Brouillon   |
 | 11  | Risques et dette technique                    | [../dette-technique.md](../dette-technique.md)             | Registre ouvert |
-| 12  | Glossaire                                     | —                                                          | Après l'Event Storming |
+| 12  | Glossaire                                     | [12-glossaire.md](12-glossaire.md)                         | Brouillon, à fixer à l'Event Storming |
+
+Domaine (DDD) : [préparation de l'Event Storming](../domaine/event-storming-preparation.md) ·
+[carte de contexte provisoire](../domaine/carte-de-contexte.md).
