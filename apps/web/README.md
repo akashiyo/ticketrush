@@ -9,7 +9,9 @@ Partagé : la structure est posée par P2, puis chacun écrit ses pages dans son
 
 | Adresse                            | Page                                                                                                                                                                                   | Piste |
 | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
-| `/`                                | Accueil provisoire : rejoindre une vente par son identifiant (remplacé par le catalogue de P1)                                                                                         | P2    |
+| `/`                                | **Catalogue** : recherche par artiste, événement, salle ou ville, filtres ville et dates (Meilisearch)                                                                                 | P1    |
+| `/evenements/{evenementId}`        | **Fiche** : salle, date, tarifs, accès à la vente                                                                                                                                      | P1    |
+| `/acces`                           | Accès direct à une vente par son identifiant (développement, démonstration)                                                                                                            | P2    |
 | `/connexion/retour`                | Retour de Keycloak après connexion                                                                                                                                                     | P2    |
 | `/vente/{evenementId}`             | **Salle d'attente** : connexion obligatoire, entrée automatique avec preuve anti-robots, position et temps d'attente, passage à la réservation une fois admis                          | P2    |
 | `/vente/{evenementId}/reservation` | **Réservation** : plan de salle (fosse ou siège numéroté), blocage avec le jeton d'accès, paiement avec compte à rebours et `Idempotency-Key`, billet ([`src/pages/p1`](src/pages/p1)) | P1    |
