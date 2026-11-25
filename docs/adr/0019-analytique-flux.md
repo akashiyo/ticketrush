@@ -17,7 +17,7 @@ Contraintes :
 - **D-2** : l'arrêt de l'Analytique ne doit provoquer aucune erreur côté achat. À son redémarrage, elle rattrape les événements en moins de 5 minutes.
 - **S-3** : un organisateur ne voit jamais les ventes d'un autre.
 - **ADR 020** : tout le code est en TypeScript, pour que chacun puisse le défendre.
-- **SLO de fraîcheur** (ADR 018) : 95 % des ventes sont visibles en moins de 5 s.
+- **P-4 et le SLO de fraîcheur** (ADR 018) : 95 % des ventes sont visibles en moins de 5 s.
 
 ## Décision
 

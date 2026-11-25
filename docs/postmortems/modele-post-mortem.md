@@ -23,7 +23,7 @@
 
 | SLO (ADR 018) | Objectif | Valeur pendant l'incident | Budget d'erreur consommé |
 |---|---|---|---|
-| Entrée dans la file | 99,5 % en < 2 s | | |
+| Entrée dans la file | 99 % en < 2 s | | |
 | Réservation | 99 % en < 500 ms | | |
 | Parcours d'achat disponible | 99,9 % sans 5xx | | |
 | Fraîcheur de l'analytique | 95 % en < 5 s | | |

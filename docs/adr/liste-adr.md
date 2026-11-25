@@ -28,8 +28,8 @@
 | 015 | Stratégie de cache | Cache-aside Redis sur les fiches événement + invalidation par événements + cache HTTP des fichiers de la SPA | P-3 | Pas de cache (la base absorbe tout le pic) · TTL seul sans invalidation (données de vente périmées) | P1 | ● |
 | 016 | Isolation multi-tenant des organisateurs | Row-Level Security PostgreSQL + rôles Keycloak + journal d'audit en base ; chaque organisateur a son dashboard de gestion (`/organisateur`) | S-3 | Base par organisateur (coût d'exploitation) · schéma par organisateur (migrations multipliées) · filtre applicatif seul (un bug = une fuite) | P1 | ● |
 | 017 | Observabilité | OpenTelemetry + Collector → Prometheus, Tempo, Loki, Grafana (image `grafana/otel-lgtm` en local) | O-1 | Datadog (payant, dépendance fournisseur) · ELK (lourd, pas de traces natives) | P2 | ● |
-| 018 | SLO et budgets d'erreur | SLO de la mise en vente calculés dans Prometheus, alertes par taux de consommation (burn rate) | O-1, D-2 | Alertes sur seuils bruts (bruyantes, sans lien avec l'expérience utilisateur) | P2 | ○ |
-| 019 | Analytique en flux | Consumer KafkaJS avec fenêtres de temps, agrégats dans Redis, SSE vers le dashboard | D-2, O-1 | Flink / Kafka Streams (Java, hors compétences de l'équipe) · requêtes SQL périodiques (pas du temps réel, charge sur la base) | P2 | ○ |
+| 018 | SLO et budgets d'erreur | SLO de la mise en vente calculés dans Prometheus, alertes par taux de consommation (burn rate) | P-1, P-2, P-3, P-4, D-3 | Alertes sur seuils bruts (bruyantes, sans lien avec l'expérience utilisateur) | P2 | ○ |
+| 019 | Analytique en flux | Consumer KafkaJS avec fenêtres de temps, agrégats dans Redis, SSE vers le dashboard | D-2, P-4, O-1 | Flink / Kafka Streams (Java, hors compétences de l'équipe) · requêtes SQL périodiques (pas du temps réel, charge sur la base) | P2 | ○ |
 | 020 | Langage et frameworks | TypeScript partout : React + Vite, NestJS, Drizzle | M-1 | Java/Spring (deux langages à maîtriser pour défendre tout le code) · Next.js (SSR inutile) · Prisma (SQL atomique trop abstrait) | P1 | ○ |
 | 021 | Gouvernance et fonctions de fitness | GitHub Actions ; dependency-cruiser (dépendances), oasdiff (contrats), seuils k6 (performance) ; registre de dette | M-1, M-2 | ArchUnit (Java) · revue manuelle seule (les décisions divergent du code) | P2 | ● |
 | 022 | Déploiement | Docker Compose lancé en une commande ; Kubernetes (k3d + HPA) en bonus | M-2 | Kubernetes d'emblée (complexité sans bénéfice au jalon 2) | P2 | ○ |
@@ -74,6 +74,8 @@ Les 22 ADR sont rédigés. Statut « Accepté » pour les décisions déjà vali
 | E-1 | Équité | À l'ouverture → **100 %** des admissions respectent l'ordre de la file ; 0 compte avec deux positions |
 | D-1 | Disponibilité (paiement) | Le prestataire de paiement tombe en pleine vente → la file continue, les places bloquées sont libérées à expiration (≤ 10 min), aucun billet émis sans paiement accepté |
 | D-2 | Disponibilité (service arrêté) | Le comité arrête l'Analytique pendant la vente → 0 erreur côté achat ; au redémarrage, l'analytique rattrape les événements en **< 5 min** |
+| D-3 | Disponibilité (parcours d'achat) | Pendant toute une vente, pannes comprises → **99,9 %** des requêtes du parcours d'achat sans erreur serveur (5xx) |
+| P-4 | Performance (dashboard en direct) | Un billet est émis pendant le pic → la vente apparaît dans le dashboard de l'organisateur en **< 5 s** dans **95 %** des cas |
 | S-1 | Sécurité (robots) | Un client automatisé sans preuve de travail valide → refusé à **100 %** à l'entrée de la file |
 | S-2 | Sécurité (jetons) | Un jeton d'accès falsifié, expiré ou rejoué → refusé à **100 %** ; signature vérifiée en **< 5 ms** sans appel réseau, rejeu détecté par un seul appel Redis |
 | S-3 | Sécurité (isolation) | L'organisateur A interroge les données de B → **0 ligne** renvoyée, vérifié par un test en CI |

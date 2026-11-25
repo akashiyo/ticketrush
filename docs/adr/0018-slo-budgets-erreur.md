@@ -21,11 +21,15 @@ Particularité de TicketRush : la charge ne dure pas 30 jours. Elle se concentre
 
 | SLO | SLI | Objectif | Scénario |
 |---|---|---|---|
-| **Entrée dans la file** | Part des demandes de position qui réussissent en moins de 2 s | 99,5 % | P-1 |
+| **Entrée dans la file** | Part des demandes d'entrée et de position qui réussissent en moins de 2 s | 99 % | P-1 |
 | **Réservation** | Part des tentatives de blocage qui reçoivent une réponse (place obtenue ou déjà prise) en moins de 500 ms | 99 % | P-2 |
-| **Parcours d'achat disponible** | Part des requêtes du parcours d'achat sans erreur serveur (5xx) | 99,9 % | D-1, D-2 |
-| **Fraîcheur de l'analytique** | Part des événements de vente visibles dans le dashboard en moins de 5 s | 95 % | D-2 |
+| **Parcours d'achat disponible** | Part des requêtes du parcours d'achat sans erreur serveur (5xx), sur toute la vente | 99,9 % | D-3 |
+| **Fraîcheur de l'analytique** | Part des événements de vente visibles dans le dashboard en moins de 5 s | 95 % | P-4 |
 | **Recherche** | Part des recherches qui répondent en moins de 300 ms | 99 % | P-3 |
+
+**Chaque SLO reprend exactement l'objectif de son scénario** (arc42, section 10) : le scénario fixe l'exigence, le SLO la mesure en production. Un « p99 < 2 s » dans un scénario devient donc « 99 % des requêtes en moins de 2 s ». Si l'un change, l'autre change avec lui.
+
+Les scénarios qui exigent **zéro** erreur pendant une panne précise (D-1, D-2) ne sont pas des SLO : un objectif de 100 % n'a pas de budget d'erreur. Ils sont vérifiés par le test de résilience, comme critères réussi ou échoué.
 
 **Zéro survente n'est pas un SLO, c'est un invariant.** Il n'a pas de budget d'erreur : une seule survente déclenche une alerte critique immédiate. Une requête de contrôle tourne en continu pendant la vente (ADR 003).
 

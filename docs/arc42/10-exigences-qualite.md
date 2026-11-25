@@ -19,12 +19,14 @@ Utilité
 ├── Performance
 │   ├── Entrée dans la file ........ P-1  position reçue en < 2 s au p99 à l'ouverture .......... (H, H)
 │   ├── Réservation ................ P-2  blocage confirmé ou refusé en < 500 ms au p99 ......... (H, M)
-│   └── Recherche .................. P-3  < 300 ms au p99, sans dégrader la réservation ......... (M, M)
+│   ├── Recherche .................. P-3  < 300 ms au p99, sans dégrader la réservation ......... (M, M)
+│   └── Dashboard en direct ........ P-4  95 % des ventes visibles en < 5 s ..................... (M, M)
 ├── Équité
 │   └── Ordre d'admission .......... E-1  100 % des admissions dans l'ordre, 1 position/compte .. (H, M)
 ├── Disponibilité
 │   ├── Prestataire en panne ....... D-1  la vente continue, 0 billet sans paiement ............ (H, H)
-│   └── Service arrêté ............. D-2  Analytique coupée : 0 erreur d'achat, rattrapage < 5 min (H, M)
+│   ├── Service arrêté ............. D-2  Analytique coupée : 0 erreur d'achat, rattrapage < 5 min (H, M)
+│   └── Parcours d'achat ........... D-3  99,9 % des requêtes sans erreur serveur sur la vente ... (H, M)
 ├── Sécurité
 │   ├── Robots ..................... S-1  100 % des clients sans preuve de travail refusés ....... (H, M)
 │   ├── Jetons d'accès ............. S-2  100 % des jetons falsifiés, expirés, rejoués refusés .... (H, M)
@@ -137,6 +139,24 @@ acceptés. Décisions : ADR 003, 005.
 Vérifié par : comparaison du nombre de `BilletEmis` dans l'Outbox et dans les agrégats de l'Analytique.
 Décisions : ADR 001, 005, 006, 007, 019.
 
+### D-3 — Disponibilité : parcours d'achat pendant toute une vente (proposé)
+
+| Partie        | Contenu                                                                                                   |
+| ------------- | --------------------------------------------------------------------------------------------------------- |
+| Source        | Acheteurs                                                                                                 |
+| Stimulus      | Utilisent le parcours d'achat : entrée et position dans la file, réservation, paiement                     |
+| Artefact      | Point d'entrée (Traefik), File d'attente, Cœur                                                            |
+| Environnement | Toute la durée d'une mise en vente, de l'ouverture à la fin des admissions, pannes comprises              |
+| Réponse       | Les requêtes aboutissent, ou sont refusées proprement (place prise, débit dépassé, paiement indisponible)  |
+| Mesure        | **99,9 %** des requêtes du parcours d'achat sans erreur serveur (5xx)                                     |
+
+D-1 et D-2 fixent **0 erreur** pendant une panne précise, injectée et vérifiée par le test de
+résilience. D-3 fixe l'objectif sur **toute** la vente : c'est lui que mesure le SLO « Parcours
+d'achat disponible » de l'ADR 018, avec son budget d'erreur de 0,1 %.
+
+Vérifié par : SLO « Parcours d'achat disponible » (ADR 018) ; taux de 5xx du rapport de charge.
+Décisions : ADR 001, 005, 013, 018.
+
 ### S-1 — Sécurité : robots
 
 | Partie        | Contenu                                                                           |
@@ -188,6 +208,23 @@ Vérifié par : test automatique en CI. Décisions : ADR 010, 016.
 | Mesure        | **100 %** des modifications ont leur ligne d'audit (qui, quoi, quand, avant, après) ; **0** modification ou suppression possible du journal par le rôle applicatif |
 
 Vérifié par : test automatique en CI. Décisions : ADR 016.
+
+### P-4 — Performance : fraîcheur du dashboard en direct (proposé)
+
+| Partie        | Contenu                                                                                     |
+| ------------- | ------------------------------------------------------------------------------------------- |
+| Source        | Organisateur qui suit sa vente                                                              |
+| Stimulus      | Un billet est émis (événement `BilletEmis`)                                                 |
+| Artefact      | Outbox du Cœur, Redpanda, Analytique, dashboard en direct (SSE)                             |
+| Environnement | Pic de la vente, fonctionnement normal (l'Analytique n'est pas arrêtée)                     |
+| Réponse       | La vente apparaît dans le dashboard de l'organisateur                                       |
+| Mesure        | **95 %** des ventes visibles dans le dashboard en **< 5 s**                                  |
+
+Ne pas confondre avec D-2 : D-2 mesure le **rattrapage** après un arrêt de l'Analytique (< 5 min),
+P-4 la **fraîcheur** en fonctionnement normal (< 5 s).
+
+Vérifié par : SLO « Fraîcheur de l'analytique » (ADR 018), écart entre l'heure d'émission du billet et
+son arrivée dans les agrégats. Décisions : ADR 006, 007, 019.
 
 ### O-1 — Observabilité : diagnostiquer une réservation lente
 
@@ -247,8 +284,9 @@ Vérifié par : une pull request de test avec un import interdit volontaire. Dé
   minute) dépassent le test de charge exigé (50 000 acheteurs) et probablement nos machines. Soit
   on garde 200 000 comme cible de production et on démontre 50 000, soit on ramène l'environnement
   du scénario au volume du test. À trancher avec P2 (P-1 est sur sa piste).
-- **Q2 — Objectif de P-1.** Le scénario dit « < 2 s au p99 » (99 %) ; l'ADR 018 fixe le SLO à
-  99,5 % sous 2 s. Aligner l'un sur l'autre.
+- ~~**Q2 — Objectif de P-1.**~~ **Résolue** : le SLO « Entrée dans la file » de l'ADR 018 est
+  ramené à **99 %** sous 2 s, l'objectif du scénario. Règle ajoutée dans l'ADR 018 : chaque SLO
+  reprend exactement l'objectif de son scénario.
 - **Q3 — Autres pannes en soutenance.** Le comité peut arrêter un autre service que l'Analytique
   (le Cœur, la File d'attente, Redis). Faut-il un scénario par cas, par exemple « une instance du
   Cœur arrêtée : la vente continue sur l'autre » ?
