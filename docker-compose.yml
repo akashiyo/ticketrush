@@ -4,8 +4,8 @@
 # Arrêt :                        docker compose down
 # Arrêt + effacement des données : docker compose down -v
 #
-# Version minimale (jalon 1) : les 4 stockages dont dépendent les services.
-# Les services, Keycloak, Traefik et l'observabilité s'ajouteront au jalon 2.
+# Contenu actuel : les 4 stockages (PostgreSQL, Redis, Redpanda, Meilisearch)
+# et Keycloak. Les services, Traefik et l'observabilité s'ajouteront au jalon 2.
 #
 # Les valeurs par défaut ci-dessous sont des valeurs de DÉVELOPPEMENT, pour que
 # « docker compose up » fonctionne sans configuration. Pour les changer, copier
@@ -119,6 +119,79 @@ services:
         limits:
           cpus: "1"
           memory: 512m
+
+  # Crée la base et l'utilisateur de Keycloak dans PostgreSQL (ADR 004), puis s'arrête.
+  # Idempotent : fonctionne aussi sur un volume PostgreSQL déjà initialisé.
+  keycloak-db-init:
+    image: postgres:18-alpine
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGDATABASE: ${POSTGRES_DB:-ticketrush}
+      PGUSER: ${POSTGRES_USER:-ticketrush}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-ticketrush_dev}
+    command:
+      - psql
+      - -v
+      - ON_ERROR_STOP=1
+      - -v
+      - kc_user=${KEYCLOAK_DB_USER:-keycloak}
+      - -v
+      - kc_password=${KEYCLOAK_DB_PASSWORD:-keycloak_dev}
+      - -v
+      - kc_db=${KEYCLOAK_DB:-keycloak}
+      - -f
+      - /init/init-keycloak.sql
+    volumes:
+      - ./infra/postgres/init-keycloak.sql:/init/init-keycloak.sql:ro
+
+  # Fournisseur d'identité : OIDC, rôles des acheteurs et des organisateurs (ADR 010).
+  # Le domaine « ticketrush » (rôles, clients, utilisateurs de test) est importé au
+  # premier démarrage depuis infra/keycloak/realm-ticketrush.json.
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.4
+    restart: unless-stopped
+    command: ["start-dev", "--import-realm"]
+    depends_on:
+      keycloak-db-init:
+        condition: service_completed_successfully
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/${KEYCLOAK_DB:-keycloak}
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USER:-keycloak}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak_dev}
+      # Émetteur fixe des jetons, quel que soit le chemin d'accès (navigateur ou autre
+      # conteneur) : les services vérifient tous le même « iss ».
+      KC_HOSTNAME: http://localhost:${KEYCLOAK_PORT:-8180}
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HEALTH_ENABLED: "true"
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin_dev}
+    ports:
+      # 8180 côté machine : le port 8080 est souvent déjà pris.
+      - "127.0.0.1:${KEYCLOAK_PORT:-8180}:8080"
+    volumes:
+      - ./infra/keycloak:/opt/keycloak/data/import:ro
+    healthcheck:
+      # L'image n'a pas curl : requête HTTP brute sur le port de gestion (9000).
+      test:
+        - CMD-SHELL
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/9000 &&
+          printf 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 &&
+          grep -q '"status": "UP"' <&3
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 1536m
 
 volumes:
   postgres-data:
