@@ -1,0 +1,46 @@
+{
+  "name": "@ticketrush/coeur",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cœur (monolithe modulaire) : Catalogue, Réservation, Organisateurs",
+  "type": "module",
+  "main": "./dist/main.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node -e \"for (const m of ['reservation','catalogue','organisateurs']) require('node:fs').cpSync('src/'+m+'/infrastructure/migrations','dist/'+m+'/infrastructure/migrations',{recursive:true})\"",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "start": "node dist/main.js",
+    "dependances": "depcruise src --config .dependency-cruiser.cjs",
+    "migrations:reservation": "drizzle-kit generate --config drizzle.reservation.config.ts",
+    "migrations:catalogue": "drizzle-kit generate --config drizzle.catalogue.config.ts",
+    "migrations:organisateurs": "drizzle-kit generate --config drizzle.organisateurs.config.ts"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.2.12",
+    "@nestjs/core": "^11.2.12",
+    "@nestjs/platform-express": "^11.2.12",
+    "@ticketrush/contrats": "workspace:*",
+    "drizzle-orm": "^0.45.4",
+    "ioredis": "^6.1.0",
+    "jose": "^6.2.18",
+    "kafkajs": "^2.2.4",
+    "meilisearch": "^0.63.0",
+    "pg": "^8.23.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "^11.2.12",
+    "@types/express": "^5.0.6",
+    "@types/pg": "^8.23.1",
+    "@types/supertest": "^7.2.1",
+    "dependency-cruiser": "^18.9.0",
+    "drizzle-kit": "^0.31.11",
+    "supertest": "^7.3.2",
+    "testcontainers": "^12.2.2"
+  }
+}

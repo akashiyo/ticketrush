@@ -1,0 +1,52 @@
+{
+  "id": "4072f6cb-4c0f-4729-a100-ad7fbbedb4ae",
+  "prevId": "77238a50-23e7-4bb8-8a70-37eb91cfc68d",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "catalogue.fiche": {
+      "name": "fiche",
+      "schema": "catalogue",
+      "columns": {
+        "evenement_id": {
+          "name": "evenement_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "contenu": {
+          "name": "contenu",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {
+    "catalogue": "catalogue"
+  },
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

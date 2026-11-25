@@ -1,6 +1,6 @@
 {
   "name": "@ticketrush/contrats",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Contrats partagés entre P1 et P2 : jetons, événements (AsyncAPI), API (OpenAPI) et types TypeScript",
   "type": "module",

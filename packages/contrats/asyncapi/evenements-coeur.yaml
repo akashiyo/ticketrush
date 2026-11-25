@@ -1,0 +1,339 @@
+asyncapi: 3.0.0
+
+info:
+  title: TicketRush — événements publiés par le Cœur
+  version: 0.2.0
+  description: |
+    Événements du domaine publiés par le Cœur (fournisseur : P1) sur Redpanda (ADR 005, 006),
+    via l'Outbox (ADR 007). Toute modification passe par une pull request relue par P2.
+
+    Pas encore dans le contrat : l'heure d'ouverture de la vente dans `EvenementPublie` (en
+    discussion avec P2, dette D-014).
+
+    Règles communes à tous les messages :
+    - livraison **au moins une fois** : chaque consommateur ignore un `id` déjà traité ;
+    - clé Kafka = `evenementId` (le spectacle) : tous les messages d'une vente arrivent dans l'ordre ;
+    - en-tête Kafka `traceparent` : contexte de trace OpenTelemetry (ADR 017) ;
+    - évolution compatible uniquement : ajouter un champ optionnel ; jamais renommer ni supprimer
+      (sinon `versionSchema` + 1 et nouveau type). Les consommateurs ignorent les champs inconnus ;
+    - aucune donnée personnelle sauf `acheteurId` dans `BilletEmis` (identifiant Keycloak, pas d'e-mail).
+
+servers:
+  redpanda:
+    host: redpanda:9092
+    protocol: kafka
+    description: "Redpanda du Docker Compose (depuis la machine : localhost:19092)"
+
+channels:
+  catalogueEvenements:
+    address: catalogue.evenements
+    description: Cycle de vie des événements (spectacles) et de leurs tarifs. Producteur, modules Catalogue et Organisateurs du Cœur.
+    messages:
+      EvenementPublie:
+        $ref: "#/components/messages/EvenementPublie"
+      EvenementModifie:
+        $ref: "#/components/messages/EvenementModifie"
+      TarifModifie:
+        $ref: "#/components/messages/TarifModifie"
+
+  reservationVentes:
+    address: reservation.ventes
+    description: Faits de vente. Producteur, module Réservation du Cœur.
+    messages:
+      PlaceBloquee:
+        $ref: "#/components/messages/PlaceBloquee"
+      BlocageExpire:
+        $ref: "#/components/messages/BlocageExpire"
+      BilletEmis:
+        $ref: "#/components/messages/BilletEmis"
+
+operations:
+  publierCatalogue:
+    action: send
+    channel:
+      $ref: "#/channels/catalogueEvenements"
+    summary: "Le Cœur publie les changements du catalogue (consommateurs : projection Meilisearch, File d'attente, Analytique)."
+    messages:
+      - $ref: "#/channels/catalogueEvenements/messages/EvenementPublie"
+      - $ref: "#/channels/catalogueEvenements/messages/EvenementModifie"
+      - $ref: "#/channels/catalogueEvenements/messages/TarifModifie"
+
+  publierVentes:
+    action: send
+    channel:
+      $ref: "#/channels/reservationVentes"
+    summary: "Le Cœur publie les faits de vente (consommateurs : File d'attente pour le stock restant, projection des disponibilités, Analytique, envoi d'e-mail)."
+    messages:
+      - $ref: "#/channels/reservationVentes/messages/PlaceBloquee"
+      - $ref: "#/channels/reservationVentes/messages/BlocageExpire"
+      - $ref: "#/channels/reservationVentes/messages/BilletEmis"
+
+components:
+  messages:
+    EvenementPublie:
+      name: EvenementPublie
+      title: Un événement est publié et devient visible du public
+      summary: Porte l'état complet de l'événement, dont la capacité de chaque catégorie.
+      headers:
+        $ref: "#/components/schemas/EntetesKafka"
+      bindings:
+        kafka:
+          key:
+            type: string
+            format: uuid
+            description: evenementId
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/Enveloppe"
+          - type: object
+            required: [type, donnees]
+            properties:
+              type:
+                const: EvenementPublie
+              donnees:
+                $ref: "#/components/schemas/EtatEvenement"
+
+    EvenementModifie:
+      name: EvenementModifie
+      title: Un événement publié est modifié
+      summary: Porte l'état complet après modification ; le consommateur remplace son état si versionEvenement est plus récente.
+      headers:
+        $ref: "#/components/schemas/EntetesKafka"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/Enveloppe"
+          - type: object
+            required: [type, donnees]
+            properties:
+              type:
+                const: EvenementModifie
+              donnees:
+                $ref: "#/components/schemas/EtatEvenement"
+
+    TarifModifie:
+      name: TarifModifie
+      title: Le prix d'une catégorie change
+      headers:
+        $ref: "#/components/schemas/EntetesKafka"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/Enveloppe"
+          - type: object
+            required: [type, donnees]
+            properties:
+              type:
+                const: TarifModifie
+              donnees:
+                type: object
+                required: [categorieId, prixCentimes, devise, versionEvenement]
+                properties:
+                  categorieId:
+                    type: string
+                    format: uuid
+                  prixCentimes:
+                    type: integer
+                    minimum: 0
+                  devise:
+                    $ref: "#/components/schemas/Devise"
+                  versionEvenement:
+                    $ref: "#/components/schemas/VersionEvenement"
+
+    PlaceBloquee:
+      name: PlaceBloquee
+      title: Une place est bloquée pour une réservation
+      summary: La place est retirée du stock disponible jusqu'à bloqueJusqua (ADR 003).
+      headers:
+        $ref: "#/components/schemas/EntetesKafka"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/Enveloppe"
+          - type: object
+            required: [type, donnees]
+            properties:
+              type:
+                const: PlaceBloquee
+              donnees:
+                type: object
+                required: [reservationId, siegeId, categorieId, bloqueJusqua]
+                properties:
+                  reservationId:
+                    type: string
+                    format: uuid
+                  siegeId:
+                    type: string
+                    format: uuid
+                  categorieId:
+                    type: string
+                    format: uuid
+                  bloqueJusqua:
+                    type: string
+                    format: date-time
+
+    BlocageExpire:
+      name: BlocageExpire
+      title: Un blocage non payé a expiré ; la place redevient réservable
+      headers:
+        $ref: "#/components/schemas/EntetesKafka"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/Enveloppe"
+          - type: object
+            required: [type, donnees]
+            properties:
+              type:
+                const: BlocageExpire
+              donnees:
+                type: object
+                required: [reservationId, siegeId, categorieId]
+                properties:
+                  reservationId:
+                    type: string
+                    format: uuid
+                  siegeId:
+                    type: string
+                    format: uuid
+                  categorieId:
+                    type: string
+                    format: uuid
+
+    BilletEmis:
+      name: BilletEmis
+      title: Un billet est émis après paiement accepté
+      summary: La place est vendue. Émis dans la même transaction que le passage de la place à « vendue » (ADR 003).
+      headers:
+        $ref: "#/components/schemas/EntetesKafka"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/Enveloppe"
+          - type: object
+            required: [type, donnees]
+            properties:
+              type:
+                const: BilletEmis
+              donnees:
+                type: object
+                required:
+                  [billetId, reservationId, siegeId, categorieId, acheteurId, prixCentimes, devise]
+                properties:
+                  billetId:
+                    type: string
+                    format: uuid
+                  reservationId:
+                    type: string
+                    format: uuid
+                  siegeId:
+                    type: string
+                    format: uuid
+                  categorieId:
+                    type: string
+                    format: uuid
+                  acheteurId:
+                    type: string
+                    description: sub Keycloak de l'acheteur. Seule donnée personnelle des événements, utile à l'envoi du billet par e-mail.
+                  prixCentimes:
+                    type: integer
+                    minimum: 0
+                  devise:
+                    $ref: "#/components/schemas/Devise"
+
+  schemas:
+    EntetesKafka:
+      type: object
+      properties:
+        traceparent:
+          type: string
+          description: Contexte de trace W3C (OpenTelemetry, ADR 017), recopié depuis la colonne traceparent de l'Outbox.
+
+    Enveloppe:
+      type: object
+      description: Champs communs à tous les messages. C'est le contenu de la colonne `contenu` de l'Outbox (ADR 007).
+      required: [id, type, versionSchema, survenuLe, evenementId, organisationId]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Identifiant unique du message (= id de la ligne Outbox). Clé d'idempotence des consommateurs.
+        type:
+          type: string
+          description: Nom de l'événement du domaine, au participe passé.
+        versionSchema:
+          type: integer
+          const: 1
+        survenuLe:
+          type: string
+          format: date-time
+          description: Instant du fait, dans la transaction du Cœur (sert à mesurer la fraîcheur, P-4).
+        evenementId:
+          type: string
+          format: uuid
+          description: Le spectacle concerné. Aussi la clé de partition Kafka.
+        organisationId:
+          type: string
+          format: uuid
+          description: L'organisation propriétaire de l'événement. Permet à l'Analytique d'isoler les données par organisateur (S-3).
+
+    EtatEvenement:
+      type: object
+      required: [titre, salle, debutLe, categories, devise, versionEvenement]
+      properties:
+        titre:
+          type: string
+        artiste:
+          type: string
+        genre:
+          type: string
+        salle:
+          type: object
+          required: [salleId, nom, ville]
+          properties:
+            salleId:
+              type: string
+              format: uuid
+            nom:
+              type: string
+            ville:
+              type: string
+        debutLe:
+          type: string
+          format: date-time
+          description: Date et heure du spectacle.
+        categories:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/Categorie"
+        devise:
+          $ref: "#/components/schemas/Devise"
+        versionEvenement:
+          $ref: "#/components/schemas/VersionEvenement"
+
+    Categorie:
+      type: object
+      required: [categorieId, libelle, placement, capacite, prixCentimes]
+      properties:
+        categorieId:
+          type: string
+          format: uuid
+        libelle:
+          type: string
+          examples: ["Fosse", "Catégorie 1"]
+        placement:
+          type: string
+          enum: [numerote, libre]
+          description: numerote = l'acheteur choisit son siège ; libre = fosse, place attribuée automatiquement (ADR 003).
+        capacite:
+          type: integer
+          minimum: 1
+          description: "Nombre total de places de la catégorie. Point de départ du stock restant, que la File calcule elle-même : PlaceBloquee − 1, BlocageExpire + 1, BilletEmis 0 (la place était déjà bloquée). Indicatif : la garantie de zéro survente reste dans PostgreSQL (ADR 003)."
+        prixCentimes:
+          type: integer
+          minimum: 0
+
+    Devise:
+      type: string
+      const: EUR
+
+    VersionEvenement:
+      type: integer
+      minimum: 1
+      description: Version de l'agrégat Événement, + 1 à chaque modification. Un consommateur ignore une version plus ancienne que celle qu'il connaît (ADR 014).

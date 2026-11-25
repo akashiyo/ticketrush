@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    // La vérification des types (étape « typecheck » de la CI) passe avant le build :
+    // les contrats sont lus depuis leurs sources, sans attendre leur dist/.
+    "paths": {
+      "@ticketrush/contrats": ["../../packages/contrats/src/index.ts"]
+    }
+  },
+  "include": ["src"]
+}
