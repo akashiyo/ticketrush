@@ -3,6 +3,7 @@ import { createBrowserRouter, Link, Outlet, RouterProvider } from "react-router"
 import { useAuth } from "../auth/auth";
 import { Catalogue } from "../pages/p1/Catalogue";
 import { FicheEvenement } from "../pages/p1/FicheEvenement";
+import { Organisateur } from "../pages/p1/Organisateur";
 import { Reservation } from "../pages/p1/Reservation";
 import { Accueil } from "../pages/p2/Accueil";
 import { ConnexionRetour } from "../pages/p2/ConnexionRetour";
@@ -23,6 +24,7 @@ export const routes = [
       { path: "/connexion/retour", element: <ConnexionRetour /> },
       { path: "/vente/:evenementId", element: <SalleAttente /> },
       { path: "/vente/:evenementId/reservation", element: <Reservation /> },
+      { path: "/organisateur", element: <Organisateur /> },
       { path: "*", element: <p role="alert">Page introuvable.</p> },
     ],
   },

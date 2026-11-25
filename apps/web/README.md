@@ -15,6 +15,7 @@ Partagé : la structure est posée par P2, puis chacun écrit ses pages dans son
 | `/connexion/retour`                | Retour de Keycloak après connexion                                                                                                                                                     | P2    |
 | `/vente/{evenementId}`             | **Salle d'attente** : connexion obligatoire, entrée automatique avec preuve anti-robots, position et temps d'attente, passage à la réservation une fois admis                          | P2    |
 | `/vente/{evenementId}/reservation` | **Réservation** : plan de salle (fosse ou siège numéroté), blocage avec le jeton d'accès, paiement avec compte à rebours et `Idempotency-Key`, billet ([`src/pages/p1`](src/pages/p1)) | P1    |
+| `/organisateur`                    | **Espace organisateur** : ses événements et leurs ventes, création d'un brouillon, publication, prix, journal d'audit (rôles organisateur, ADR 016)                                    | P1    |
 
 ## Connexion (ADR 010)
 
