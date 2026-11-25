@@ -30,13 +30,14 @@ Docker Desktop doit être lancé. Tout démarre en une commande :
 docker compose up -d
 ```
 
-| Service     | Adresse depuis la machine                                      | Rôle                                                                                                     |
-| ----------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| PostgreSQL  | `localhost:5432` (base, utilisateur `ticketrush`)              | Source de vérité du Cœur (ADR 004)                                                                       |
-| Redis       | `localhost:6379`                                               | File d'attente, jetons, cache, agrégats                                                                  |
-| Redpanda    | Kafka `localhost:19092`, registre de schémas `localhost:18081` | Événements (ADR 006)                                                                                     |
-| Meilisearch | `http://localhost:7700`                                        | Recherche dans le catalogue (ADR 014)                                                                    |
-| Keycloak    | `http://localhost:8180`                                        | Authentification et rôles (ADR 010) — comptes de test dans [`infra/keycloak/`](infra/keycloak/README.md) |
+| Service       | Adresse depuis la machine                                      | Rôle                                                                                                     |
+| ------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| PostgreSQL    | `localhost:5432` (base, utilisateur `ticketrush`)              | Source de vérité du Cœur (ADR 004)                                                                       |
+| Redis         | `localhost:6379`                                               | File d'attente, jetons, cache, agrégats                                                                  |
+| Redpanda      | Kafka `localhost:19092`, registre de schémas `localhost:18081` | Événements (ADR 006)                                                                                     |
+| Meilisearch   | `http://localhost:7700`                                        | Recherche dans le catalogue (ADR 014)                                                                    |
+| Keycloak      | `http://localhost:8180`                                        | Authentification et rôles (ADR 010) — comptes de test dans [`infra/keycloak/`](infra/keycloak/README.md) |
+| Faux paiement | `http://localhost:3003`                                        | Prestataire de paiement simulé — API dans [`services/faux-paiement/`](services/faux-paiement/README.md)  |
 
 - `docker compose ps` : état des conteneurs (tous doivent être `healthy`, sauf `keycloak-db-init` qui s'arrête après avoir créé la base de Keycloak).
 - `docker compose down` : arrêt. Ajouter `-v` pour effacer aussi les données.

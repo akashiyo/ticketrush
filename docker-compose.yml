@@ -4,8 +4,11 @@
 # Arrêt :                        docker compose down
 # Arrêt + effacement des données : docker compose down -v
 #
-# Contenu actuel : les 4 stockages (PostgreSQL, Redis, Redpanda, Meilisearch)
-# et Keycloak. Les services, Traefik et l'observabilité s'ajouteront au jalon 2.
+# Contenu actuel : les 4 stockages (PostgreSQL, Redis, Redpanda, Meilisearch),
+# Keycloak et le faux prestataire de paiement. Les autres services, Traefik et
+# l'observabilité s'ajouteront au jalon 2.
+#
+# Couper le paiement (démo de panne en soutenance) : docker compose stop faux-paiement
 #
 # Les valeurs par défaut ci-dessous sont des valeurs de DÉVELOPPEMENT, pour que
 # « docker compose up » fonctionne sans configuration. Pour les changer, copier
@@ -192,6 +195,38 @@ services:
         limits:
           cpus: "2"
           memory: 1536m
+
+  # Faux prestataire de paiement : accepte ou refuse un paiement simulé (squelette).
+  # Indépendant des autres services : on peut l'arrêter seul pour simuler sa panne.
+  faux-paiement:
+    build:
+      context: .
+      dockerfile: services/faux-paiement/Dockerfile
+    image: ticketrush/faux-paiement:dev
+    restart: unless-stopped
+    environment:
+      PORT: "3000"
+      # Jetons de service émis par Keycloak pour le Cœur (ADR 010).
+      AUTH_EMETTEUR: http://localhost:${KEYCLOAK_PORT:-8180}/realms/ticketrush
+      AUTH_JWKS_URL: http://keycloak:8080/realms/ticketrush/protocol/openid-connect/certs
+      AUTH_AUDIENCE: ticketrush-faux-paiement
+    ports:
+      - "127.0.0.1:${FAUX_PAIEMENT_PORT:-3003}:3000"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/sante').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
 
 volumes:
   postgres-data:

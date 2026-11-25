@@ -29,6 +29,7 @@
 | D-010 | **Défis ALTCHA désactivés par un mode de test** pendant le test de charge, si k6 ne les résout pas | Prudente, délibérée | 012 | Le coût réel de la vérification de preuve de travail n'est pas mesuré sous charge | Mesurer séparément le coût de vérification, ou faire résoudre les défis par k6 | À confirmer |
 | D-011 | **Objectifs des SLO fixés sans mesure préalable** | Prudente, délibérée | 018 | Des alertes trop sensibles ou trop laxistes pendant la démo | Recalibrer les SLO après le premier test de charge (jalon 3) | Ouverte |
 | D-012 | **Découpage en contextes antérieur à l'Event Storming** | Prudente, délibérée | 002 | Des frontières de modules à revoir, donc du code à déplacer | Confirmer ou remplacer l'ADR 002 après l'atelier du jalon 1 | Ouverte |
+| D-013 | **Faux prestataire de paiement sans persistance** : paiements et clés d'idempotence gardés en mémoire | Prudente, délibérée | 005 | Après un redémarrage du faux paiement, une nouvelle tentative du Cœur avec une ancienne clé crée un second paiement simulé. Sans effet sur le stock : seule la réservation dans PostgreSQL fait foi (ADR 003) | Accepté tel quel : c'est un prestataire simulé. Le Cœur doit tolérer un paiement inconnu après redémarrage | Ouverte |
 
 ## Dette remboursée
 
