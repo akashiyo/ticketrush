@@ -13,4 +13,7 @@
  */
 
 /** Version des contrats. À incrémenter à chaque changement, compatible ou non. */
-export const VERSION_CONTRATS = "0.1.0";
+export const VERSION_CONTRATS = "0.2.0";
+
+// Événements publiés par le Cœur (P1) — source de vérité : asyncapi/evenements-coeur.yaml
+export * from "./evenements-coeur.js";
