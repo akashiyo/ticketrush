@@ -294,6 +294,32 @@ services:
           cpus: "1"
           memory: 384m
 
+  # Application web (React), servie par Nginx derrière Traefik : http://localhost:8000 (ADR 013).
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    image: ticketrush/web:dev
+    restart: unless-stopped
+    labels:
+      traefik.enable: "true"
+      traefik.http.services.web.loadbalancer.server.port: "80"
+      # Priorité basse : toutes les adresses qui ne sont pas une API arrivent ici.
+      traefik.http.routers.web.rule: PathPrefix(`/`)
+      traefik.http.routers.web.priority: "1"
+      traefik.http.routers.web.entrypoints: web
+      traefik.http.routers.web.service: web
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/sante"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 64m
+
   # Point d'entrée unique : routage, limitation de débit par adresse IP (ADR 012 et 013).
   # Les routes sont déclarées par les étiquettes « traefik.* » de chaque service.
   traefik:

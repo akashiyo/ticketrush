@@ -1,0 +1,83 @@
+/* Styles de base, volontairement sobres : lisibles et accessibles. */
+:root {
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  line-height: 1.5;
+  color: #1d2430;
+  background: #f6f7f9;
+}
+
+body {
+  margin: 0;
+}
+
+.entete {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1.5rem;
+  background: #12213a;
+  color: #fff;
+}
+
+.marque {
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.2rem;
+  text-decoration: none;
+}
+
+main {
+  max-width: 40rem;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+section {
+  background: #fff;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.08);
+}
+
+form {
+  display: grid;
+  gap: 0.5rem;
+}
+
+input {
+  padding: 0.5rem;
+  font-size: 1rem;
+  border: 1px solid #b8c0cc;
+  border-radius: 4px;
+}
+
+button {
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  border: none;
+  border-radius: 4px;
+  background: #c8102e;
+  color: #fff;
+  cursor: pointer;
+}
+
+button:focus-visible,
+input:focus-visible,
+a:focus-visible {
+  outline: 3px solid #2c5d9e;
+  outline-offset: 2px;
+}
+
+.position {
+  font-size: 1.5rem;
+}
+
+.remarque {
+  color: #5a6475;
+  font-size: 0.9rem;
+}

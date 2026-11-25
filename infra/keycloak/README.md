@@ -24,7 +24,7 @@ Les rôles sont dans le jeton, dans `realm_access.roles`. Les organisateurs ont 
 | `ticketrush-web`   | Public, code d'autorisation + PKCE (S256)              | Application web. Connexion par mot de passe directe refusée (OAuth 2.1). Jeton d'accès de 15 min, audience `ticketrush-api`                       |
 | `ticketrush-coeur` | Confidentiel, compte de service (`client_credentials`) | Appels du Cœur vers le faux prestataire de paiement. Secret de développement : `ticketrush-coeur-secret-dev`. Audience `ticketrush-faux-paiement` |
 
-URL de retour autorisées pour `ticketrush-web` : `http://localhost:5173/*` (Vite) et `http://localhost/*` (Traefik).
+URL de retour autorisées pour `ticketrush-web` : `http://localhost:8000/*` (Traefik, adresse par défaut), `http://localhost:5173/*` (Vite, `pnpm dev`) et `http://localhost/*` (Traefik sur le port 80).
 
 ## Comptes de test
 
