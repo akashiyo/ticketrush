@@ -4,10 +4,12 @@ import {
   ConflictException,
   Controller,
   ForbiddenException,
+  Get,
   Headers,
   HttpCode,
   HttpException,
   HttpStatus,
+  Inject,
   NotFoundException,
   Param,
   Post,
@@ -21,6 +23,7 @@ import { ExigerRole, type RequeteAuthentifiee } from "../../../commun/authentifi
 import { BloquerPlace } from "../../application/bloquer-place.js";
 import { PayerReservation } from "../../application/payer-reservation.js";
 import { AdmissionRefusee, PlaceIndisponible } from "../../domaine/blocage.js";
+import { LECTURE_PLAN, type LecturePlan } from "../../domaine/ports.js";
 import {
   type Billet,
   DelaiDePaiementDepasse,
@@ -76,7 +79,17 @@ export class ReservationsController {
   constructor(
     private readonly bloquerPlace: BloquerPlace,
     private readonly payerReservation: PayerReservation,
+    @Inject(LECTURE_PLAN) private readonly lecturePlan: LecturePlan,
   ) {}
+
+  /** Plan de salle : catégories, prix, places disponibles (indicatif, rafraîchi toutes les 2 s). */
+  @Get("evenements/:evenementId/plan")
+  async plan(@Param("evenementId") evenementIdBrut: string) {
+    const evenementId = lire(identifiant, evenementIdBrut, "Événement");
+    const plan = await this.lecturePlan.lire(evenementId);
+    if (!plan) throw new NotFoundException("Vente inconnue");
+    return plan;
+  }
 
   /**
    * Bloquer une place pendant 10 minutes. En-tête `Jeton-Acces` : le jeton remis par la File.

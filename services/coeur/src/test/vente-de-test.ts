@@ -14,14 +14,21 @@ export async function creerVenteDeTest(
   const evenementId = randomUUID();
   const categorieId = randomUUID();
   const sieges = Array.from({ length: options.places }, () => randomUUID());
-  await db.insert(categorie).values({ id: categorieId, evenementId, prixCentimes: 6500 });
+  const numerotees = options.numerotees ?? true;
+  await db.insert(categorie).values({
+    id: categorieId,
+    evenementId,
+    libelle: numerotees ? "Catégorie 1" : "Fosse",
+    placement: numerotees ? "numerote" : "libre",
+    prixCentimes: 6500,
+  });
   await db.insert(siege).values(
     sieges.map((id, i) => ({
       id,
       evenementId,
       organisationId: ORGANISATION_TEST,
       categorieId,
-      numero: (options.numerotees ?? true) ? `A-${i + 1}` : null,
+      numero: numerotees ? `A-${i + 1}` : null,
     })),
   );
   return { evenementId, categorieId, sieges };

@@ -16,6 +16,7 @@ import {
   type GenerateurId,
   HORLOGE,
   type Horloge,
+  LECTURE_PLAN,
   PASSERELLE_PAIEMENT,
   type PasserelleDePaiement,
   VERIFICATEUR_ADMISSION,
@@ -24,6 +25,8 @@ import {
 import { DepotReservationsPostgres } from "./depot-reservations-postgres.js";
 import { DepotSiegesPostgres } from "./depot-sieges-postgres.js";
 import { ReservationsController } from "./http/reservations.controller.js";
+import { LecturePlanEnCache } from "./lecture-plan-en-cache.js";
+import { LecturePlanPostgres } from "./lecture-plan-postgres.js";
 import { InitialisationReservation } from "./migrations-reservation.js";
 import { ProducteurKafka } from "./outbox/producteur-kafka.js";
 import { RelaisOutbox } from "./outbox/relais-outbox.js";
@@ -55,6 +58,13 @@ import { creerVerificateurAdmissionFile } from "./verificateur-admission-jose.js
       useFactory: (db: NodePgDatabase, nouvelId: GenerateurId) =>
         new DepotReservationsPostgres(db, nouvelId),
       inject: [BASE, GENERATEUR_ID],
+    },
+
+    // Plan de salle : lecture PostgreSQL derrière un cache de 2 s (décorateur)
+    {
+      provide: LECTURE_PLAN,
+      useFactory: (db: NodePgDatabase) => new LecturePlanEnCache(new LecturePlanPostgres(db)),
+      inject: [BASE],
     },
 
     // Jeton d'accès de la File (ADR 011)

@@ -1,4 +1,5 @@
 import type { Admission, Blocage, DemandeBlocage } from "./blocage.js";
+import type { PlanDeSalle } from "./plan.js";
 import type { Billet, DemandePaiement, Reservation, ResultatPaiement } from "./reservation.js";
 
 /**
@@ -33,6 +34,11 @@ export interface PasserelleDePaiement {
   payer(demande: DemandePaiement): Promise<ResultatPaiement>;
 }
 
+/** Lecture du plan de salle affiché à l'acheteur (indicative, ADR 015). Null si la vente est inconnue. */
+export interface LecturePlan {
+  lire(evenementId: string): Promise<PlanDeSalle | null>;
+}
+
 /** Port de vérification du jeton d'accès émis par la File d'attente (ADR 011). */
 export interface VerificateurAdmission {
   /** Vérifie signature, émetteur, audience et expiration ; lève une AdmissionRefusee sinon. */
@@ -44,6 +50,7 @@ export type Horloge = () => Date;
 
 export const DEPOT_SIEGES = Symbol("DepotSieges");
 export const DEPOT_RESERVATIONS = Symbol("DepotReservations");
+export const LECTURE_PLAN = Symbol("LecturePlan");
 export const PASSERELLE_PAIEMENT = Symbol("PasserelleDePaiement");
 export const VERIFICATEUR_ADMISSION = Symbol("VerificateurAdmission");
 export const GENERATEUR_ID = Symbol("GenerateurId");

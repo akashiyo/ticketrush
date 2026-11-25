@@ -1,5 +1,6 @@
 CREATE SCHEMA "reservation";
 --> statement-breakpoint
+CREATE TYPE "reservation"."placement" AS ENUM('numerote', 'libre');--> statement-breakpoint
 CREATE TYPE "reservation"."statut_reservation" AS ENUM('en_attente_paiement', 'payee', 'expiree', 'a_rembourser');--> statement-breakpoint
 CREATE TYPE "reservation"."statut_siege" AS ENUM('libre', 'bloque', 'vendu');--> statement-breakpoint
 CREATE TABLE "reservation"."billet" (
@@ -17,6 +18,8 @@ CREATE TABLE "reservation"."billet" (
 CREATE TABLE "reservation"."categorie" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"evenement_id" uuid NOT NULL,
+	"libelle" text NOT NULL,
+	"placement" "reservation"."placement" NOT NULL,
 	"prix_centimes" integer NOT NULL
 );
 --> statement-breakpoint

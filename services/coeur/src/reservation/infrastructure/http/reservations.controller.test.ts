@@ -10,6 +10,7 @@ import { creerVerificateur, VERIFICATEUR_JETON } from "../../../commun/authentif
 import { BloquerPlace } from "../../application/bloquer-place.js";
 import { PayerReservation } from "../../application/payer-reservation.js";
 import { AdmissionRefusee, PlaceIndisponible } from "../../domaine/blocage.js";
+import { LECTURE_PLAN } from "../../domaine/ports.js";
 import { PaiementIndisponible, PaiementRefuse } from "../../domaine/reservation.js";
 import { ReservationsController } from "./reservations.controller.js";
 
@@ -21,6 +22,7 @@ const RESERVATION = "11111111-2222-4333-8444-555555555555";
 /** Les cas d'usage sont remplacés par des doublures : ce test vérifie la couche HTTP seule. */
 const bloquerPlace = { executer: vi.fn() };
 const payerReservation = { executer: vi.fn() };
+const lecturePlan = { lire: vi.fn() };
 
 let app: INestApplication;
 let jetonKeycloak: (roles: string[]) => Promise<string>;
@@ -44,6 +46,7 @@ beforeAll(async () => {
     providers: [
       { provide: BloquerPlace, useValue: bloquerPlace },
       { provide: PayerReservation, useValue: payerReservation },
+      { provide: LECTURE_PLAN, useValue: lecturePlan },
       {
         provide: VERIFICATEUR_JETON,
         useValue: creerVerificateur(createLocalJWKSet({ keys: [jwk] }), {
@@ -124,6 +127,26 @@ describe("POST /evenements/:id/blocages", () => {
     expect((await bloquer({ siegeId: SIEGE })).status).toBe(403);
     bloquerPlace.executer.mockRejectedValueOnce(new PlaceIndisponible());
     expect((await bloquer({ siegeId: SIEGE })).status).toBe(409);
+  });
+});
+
+describe("GET /evenements/:id/plan", () => {
+  const lirePlan = async (evenementId = EVENEMENT) =>
+    http()
+      .get(`/evenements/${evenementId}/plan`)
+      .set("authorization", `Bearer ${await jetonKeycloak(["acheteur"])}`);
+
+  it("200 : renvoie le plan de la vente", async () => {
+    lecturePlan.lire.mockResolvedValue({ evenementId: EVENEMENT, categories: [] });
+    const reponse = await lirePlan();
+    expect(reponse.status).toBe(200);
+    expect(reponse.body).toEqual({ evenementId: EVENEMENT, categories: [] });
+  });
+
+  it("404 pour une vente inconnue, 400 pour un identifiant invalide", async () => {
+    lecturePlan.lire.mockResolvedValue(null);
+    expect((await lirePlan()).status).toBe(404);
+    expect((await lirePlan("pas-un-uuid")).status).toBe(400);
   });
 });
 

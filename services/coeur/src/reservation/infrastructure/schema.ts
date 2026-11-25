@@ -34,9 +34,14 @@ export const statutReservation = schemaReservation.enum("statut_reservation", [
  * plus tard : événements EvenementPublie et TarifModifie). La Réservation n'interroge jamais le
  * schéma d'un autre module (ADR 002).
  */
+export const placement = schemaReservation.enum("placement", ["numerote", "libre"]);
+
 export const categorie = schemaReservation.table("categorie", {
   id: uuid("id").primaryKey(),
   evenementId: uuid("evenement_id").notNull(),
+  libelle: text("libelle").notNull(),
+  /** numerote : l'acheteur choisit son siège ; libre : fosse, place attribuée (ADR 003). */
+  placement: placement("placement").notNull(),
   prixCentimes: integer("prix_centimes").notNull(),
 });
 

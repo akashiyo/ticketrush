@@ -47,8 +47,20 @@ export async function chargerVenteDemo(db: NodePgDatabase): Promise<boolean> {
 
   await db.transaction(async (tx) => {
     await tx.insert(categorie).values([
-      { id: fosse.id, evenementId, prixCentimes: fosse.prixCentimes },
-      { id: categorie1.id, evenementId, prixCentimes: categorie1.prixCentimes },
+      {
+        id: fosse.id,
+        evenementId,
+        libelle: "Fosse",
+        placement: "libre",
+        prixCentimes: fosse.prixCentimes,
+      },
+      {
+        id: categorie1.id,
+        evenementId,
+        libelle: "Catégorie 1",
+        placement: "numerote",
+        prixCentimes: categorie1.prixCentimes,
+      },
     ]);
     for (let i = 0; i < places.length; i += 1_000) {
       await tx
