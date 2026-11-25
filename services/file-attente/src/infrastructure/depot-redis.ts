@@ -54,6 +54,10 @@ export class DepotFileRedis implements DepotFile {
     return this.redis.zrange(`file:${evenementId}`, 0, nombre - 1);
   }
 
+  longueur(evenementId: string): Promise<number> {
+    return this.redis.zcard(`file:${evenementId}`);
+  }
+
   async admettre(
     evenementId: string,
     admissions: { acheteurId: string; admission: Admission; dureeSec: number }[],

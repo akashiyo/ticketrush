@@ -45,7 +45,7 @@ Une pull request ne peut pas être fusionnée si une étape échoue.
 |---|---|---|
 | `pas-de-cycle` | Un cycle de dépendances entre fichiers | Modules séparables (ADR 002) |
 | `domaine-sans-couches-externes` | Le domaine importe `application/` ou `infrastructure/` | Hexagonal (ADR 001, 020) |
-| `domaine-sans-technique` | Le domaine importe NestJS, Drizzle, Kysely, un client PostgreSQL, Redis, Kafka ou Meilisearch, Express, OpenTelemetry, ALTCHA, ou un module réseau de Node (`http`, `net`…) | Hexagonal (ADR 001, 020) |
+| `domaine-sans-technique` | Le domaine importe NestJS, Drizzle, Kysely, un client PostgreSQL, Redis, Kafka ou Meilisearch, Express, OpenTelemetry (ou notre paquet `@ticketrush/observabilite`), pino, ALTCHA, ou un module réseau de Node (`http`, `net`…) | Hexagonal (ADR 001, 020) |
 | `application-sans-infrastructure` | La couche application importe un adaptateur d'infrastructure au lieu d'un port du domaine (tests exceptés) | Hexagonal (ADR 001, 020) |
 | `coeur-modules-par-api` | Un module du Cœur (`catalogue`, `reservation`, `organisateurs`) importe l'intérieur d'un autre module au lieu de son dossier `api/` | Monolithe modulaire (ADR 001, 002) |
 | `services-isoles` | Une unité déployable importe le code d'une autre | Unités indépendantes, contrats seuls partagés (ADR 002, 005) |

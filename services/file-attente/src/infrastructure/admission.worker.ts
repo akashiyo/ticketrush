@@ -8,6 +8,7 @@ import {
 
 import { FileAttente } from "../application/file-attente.js";
 import { CONFIG, type Config } from "./config.js";
+import { MetriquesFile } from "./metriques.js";
 
 /**
  * Worker d'admission (ADR 008) : lance un tour d'admission à intervalle régulier.
@@ -22,6 +23,7 @@ export class AdmissionWorker implements OnModuleInit, OnModuleDestroy {
   constructor(
     @Inject(FileAttente) private readonly file: FileAttente,
     @Inject(CONFIG) private readonly config: Config,
+    @Inject(MetriquesFile) private readonly metriques: MetriquesFile,
   ) {}
 
   onModuleInit(): void {
@@ -38,7 +40,10 @@ export class AdmissionWorker implements OnModuleInit, OnModuleDestroy {
     this.enCours = true;
     try {
       const admis = await this.file.admettreUnTour();
-      if (admis > 0) this.journal.log(`${admis} acheteur(s) admis`);
+      if (admis > 0) {
+        this.metriques.admissions.add(admis);
+        this.journal.log(`${admis} acheteur(s) admis`);
+      }
     } catch (erreur) {
       this.journal.error("Tour d'admission en échec", erreur as Error);
     } finally {

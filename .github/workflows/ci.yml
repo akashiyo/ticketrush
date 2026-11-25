@@ -54,13 +54,14 @@ jobs:
       - name: Vérifier les types
         run: pnpm typecheck
 
-      # Fitness 1 : frontières hexagonales, modules du Cœur par `api/`, services
-      # isolés, aucun cycle (ADR 001, 002, 005, 021). Règles : .dependency-cruiser.cjs
-      - name: "Fitness : règles de dépendances"
-        run: pnpm fitness:dependances
-
       - name: Build
         run: pnpm build
+
+      # Fitness 1 : frontières hexagonales, modules du Cœur par `api/`, services
+      # isolés, aucun cycle (ADR 001, 002, 005, 021). Règles : .dependency-cruiser.cjs
+      # Après le build : les paquets partagés (packages/*) sont importés par leur dist/.
+      - name: "Fitness : règles de dépendances"
+        run: pnpm fitness:dependances
 
       - name: Tests
         run: pnpm test

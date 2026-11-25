@@ -8,9 +8,14 @@
 /** Modules du Cœur (ADR 002). */
 const MODULES_COEUR = "(catalogue|reservation|organisateurs)";
 
-/** Bibliothèques techniques interdites dans le domaine : frameworks, ORM, clients réseau. */
-const TECHNIQUE =
-  "(^|/)node_modules/(@nestjs|drizzle-orm|kysely|pg|postgres|ioredis|redis|kafkajs|@confluentinc|meilisearch|express|axios|undici|@opentelemetry|altcha-lib)/";
+/**
+ * Bibliothèques techniques interdites dans le domaine : frameworks, ORM, clients réseau,
+ * télémétrie (y compris notre paquet @ticketrush/observabilite, réservé à l'infrastructure).
+ */
+const TECHNIQUE = [
+  "(^|/)node_modules/(@nestjs|drizzle-orm|kysely|pg|postgres|ioredis|redis|kafkajs|@confluentinc|meilisearch|express|axios|undici|@opentelemetry|altcha-lib|pino)/",
+  "^packages/observabilite/",
+];
 
 /** Modules Node.js qui ouvrent des connexions réseau. */
 const RESEAU_NODE = "^(node:)?(http|https|http2|net|tls|dgram|dns)$";
@@ -39,7 +44,7 @@ module.exports = {
         "Hexagonal (ADR 001) : le domaine n'importe ni NestJS, ni ORM, ni client réseau (ADR 021).",
       severity: "error",
       from: { path: "/domaine/" },
-      to: { path: [TECHNIQUE, RESEAU_NODE] },
+      to: { path: [...TECHNIQUE, RESEAU_NODE] },
     },
     {
       name: "application-sans-infrastructure",
@@ -95,8 +100,11 @@ module.exports = {
     },
   ],
   options: {
-    exclude: { path: "(^|/)(dist|build|coverage)/" },
-    doNotFollow: { path: "node_modules" },
+    // Les dist/ des applications et services sont ignorés. Ceux de packages/ restent visibles
+    // (sans être parcourus) : un import de @ticketrush/observabilite y mène, et la règle
+    // domaine-sans-technique doit le voir.
+    exclude: { path: "(^|/)(build|coverage)/|^(apps|services)/[^/]+/dist/" },
+    doNotFollow: { path: ["node_modules", "^packages/[^/]+/dist/"] },
     tsPreCompilationDeps: true,
     tsConfig: { fileName: "tsconfig.base.json" },
     enhancedResolveOptions: {

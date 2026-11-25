@@ -1,0 +1,14 @@
+# Chargement des tableaux de bord TicketRush dans Grafana (ADR 017) : chaque fichier JSON
+# du dossier tableaux-de-bord/ apparaît dans le dossier « TicketRush » de Grafana.
+# Les tableaux sont modifiés dans le dépôt, pas dans Grafana.
+apiVersion: 1
+
+providers:
+  - name: ticketrush
+    folder: TicketRush
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    options:
+      path: /otel-lgtm/ticketrush-dashboards
+      foldersFromFilesStructure: false

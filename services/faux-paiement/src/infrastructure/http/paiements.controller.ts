@@ -19,6 +19,7 @@ import { z } from "zod";
 import { CreerPaiement } from "../../application/creer-paiement.js";
 import type { Paiement } from "../../domaine/paiement.js";
 import { DEPOT_PAIEMENTS, type DepotPaiements } from "../../domaine/ports.js";
+import { demandesPaiement } from "../metriques.js";
 import { JetonServiceGuard } from "./jeton-service.guard.js";
 
 const schemaDemande = z.object({
@@ -59,6 +60,9 @@ export class PaiementsController {
     }
 
     const resultat = await this.creerPaiement.executer(cleValide.data, demande.data);
+    demandesPaiement.add(1, {
+      resultat: resultat.type === "cree" ? resultat.paiement.statut : resultat.type,
+    });
     if (resultat.type === "conflit") {
       throw new UnprocessableEntityException(
         "Cette clé d'idempotence a déjà servi pour une demande différente",

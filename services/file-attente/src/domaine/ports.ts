@@ -18,6 +18,8 @@ export interface DepotFile {
   position(evenementId: string, acheteurId: string): Promise<number | null>;
   /** Les N premiers de la file, sans les retirer. */
   premiers(evenementId: string, nombre: number): Promise<string[]>;
+  /** Nombre d'acheteurs encore en attente (métrique de la file, ADR 017). */
+  longueur(evenementId: string): Promise<number>;
 
   /** Enregistre les admissions et retire les acheteurs de la file, en une seule opération. */
   admettre(

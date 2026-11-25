@@ -8,7 +8,8 @@ RUN npm install -g pnpm@10.34.9
 WORKDIR /depot
 COPY . .
 RUN pnpm install --frozen-lockfile --filter @ticketrush/faux-paiement...
-RUN pnpm --filter @ticketrush/faux-paiement build
+# « ... » construit aussi les paquets du dépôt dont le service dépend (observabilité).
+RUN pnpm --filter @ticketrush/faux-paiement... build
 RUN pnpm --filter @ticketrush/faux-paiement deploy --legacy --prod /sortie
 
 FROM node:24-alpine
@@ -17,4 +18,5 @@ WORKDIR /app
 COPY --from=construction --chown=node:node /sortie ./
 USER node
 EXPOSE 3000
-CMD ["node", "dist/main.js"]
+# Le SDK OpenTelemetry est chargé avant l'application (ADR 017).
+CMD ["node", "--import", "@ticketrush/observabilite/demarrer", "dist/main.js"]

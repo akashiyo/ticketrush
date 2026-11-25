@@ -5,9 +5,9 @@
 # Arrêt + effacement des données : docker compose down -v
 #
 # Contenu actuel : les 4 stockages (PostgreSQL, Redis, Redpanda, Meilisearch),
-# Keycloak, le faux prestataire de paiement, la file d'attente, l'application web
-# (Nginx) et Traefik, point d'entrée unique : http://localhost:8000 (ADR 013).
-# Le Cœur (P1), l'Analytique et l'observabilité s'ajouteront ensuite.
+# Keycloak, le Cœur, le faux prestataire de paiement, la file d'attente, l'application
+# web (Nginx), Traefik, point d'entrée unique : http://localhost:8000 (ADR 013), et
+# l'observabilité, Grafana : http://localhost:3000 (ADR 017). L'Analytique s'ajoutera ensuite.
 #
 # Couper le paiement (démo de panne en soutenance) : docker compose stop faux-paiement
 #
@@ -18,6 +18,16 @@
 # Les ports ne sont ouverts que sur la machine locale (127.0.0.1).
 
 name: ticketrush
+
+# Variables OpenTelemetry communes aux services (ADR 017), reprises avec « <<: *telemetrie ».
+# Chaque service ajoute son OTEL_SERVICE_NAME. Échantillonnage : 1 = toutes les traces ;
+# au pic du test de charge, OTEL_TRACES_SAMPLER_ARG=0.1 garde 10 % des traces (ADR 017).
+x-telemetrie: &telemetrie
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://observabilite:4318
+  OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+  OTEL_METRIC_EXPORT_INTERVAL: "10000"
+  OTEL_TRACES_SAMPLER: parentbased_traceidratio
+  OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-1}
 
 services:
   # Source de vérité du Cœur : places, réservations, billets, organisateurs (ADR 004).
@@ -215,6 +225,8 @@ services:
     image: ticketrush/faux-paiement:dev
     restart: unless-stopped
     environment:
+      <<: *telemetrie
+      OTEL_SERVICE_NAME: faux-paiement
       PORT: "3000"
       # Jetons de service émis par Keycloak pour le Cœur (ADR 010).
       AUTH_EMETTEUR: http://localhost:${TRAEFIK_PORT:-8000}/auth/realms/ticketrush
@@ -249,6 +261,8 @@ services:
       redis:
         condition: service_healthy
     environment:
+      <<: *telemetrie
+      OTEL_SERVICE_NAME: file-attente
       PORT: "3000"
       REDIS_URL: redis://redis:6379
       # Jetons des acheteurs et organisateurs, émis par Keycloak (ADR 010).
@@ -323,6 +337,9 @@ services:
       meilisearch:
         condition: service_healthy
     environment:
+      # Télémétrie (ADR 017) : active dès que le Cœur charge @ticketrush/observabilite.
+      <<: *telemetrie
+      OTEL_SERVICE_NAME: coeur
       PORT: "3000"
       # Cache des fiches d'événement (ADR 015) et modèle de lecture du catalogue (ADR 014).
       REDIS_URL: redis://redis:6379
@@ -330,15 +347,15 @@ services:
       MEILI_CLE: ${MEILI_MASTER_KEY:-ticketrush_dev_meili_cle_maitre}
       DATABASE_URL: postgres://${POSTGRES_USER:-ticketrush}:${POSTGRES_PASSWORD:-ticketrush_dev}@postgres:5432/${POSTGRES_DB:-ticketrush}
       # Jetons des acheteurs et organisateurs, émis par Keycloak (ADR 010).
-      AUTH_EMETTEUR: http://localhost:${KEYCLOAK_PORT:-8180}/realms/ticketrush
-      AUTH_JWKS_URL: http://keycloak:8080/realms/ticketrush/protocol/openid-connect/certs
+      AUTH_EMETTEUR: http://localhost:${TRAEFIK_PORT:-8000}/auth/realms/ticketrush
+      AUTH_JWKS_URL: http://keycloak:8080/auth/realms/ticketrush/protocol/openid-connect/certs
       AUTH_AUDIENCE: ticketrush-api
       # Jetons d'accès signés par la File d'attente (ADR 011), vérifiés localement.
       ADMISSION_JWKS_URL: http://file-attente:3000/.well-known/jwks.json
       ADMISSION_EMETTEUR: ticketrush-file-attente
       # Faux prestataire de paiement, appelé avec un jeton de service Keycloak (ADR 005, 010).
       PAIEMENT_URL: http://faux-paiement:3000
-      PAIEMENT_JETON_URL: http://keycloak:8080/realms/ticketrush/protocol/openid-connect/token
+      PAIEMENT_JETON_URL: http://keycloak:8080/auth/realms/ticketrush/protocol/openid-connect/token
       PAIEMENT_CLIENT_ID: ticketrush-coeur
       PAIEMENT_CLIENT_SECRET: ${COEUR_CLIENT_SECRET:-ticketrush-coeur-secret-dev}
       # Relais de l'Outbox vers Redpanda (ADR 006, 007).
@@ -412,6 +429,14 @@ services:
       - --entrypoints.web.address=:80
       - --ping=true
       - --log.level=INFO
+      # Traces et métriques du point d'entrée en OpenTelemetry (ADR 013, 017) : chaque
+      # trace commence à Traefik, qui transmet l'en-tête traceparent aux services.
+      - --tracing.otlp=true
+      - --tracing.otlp.http.endpoint=http://observabilite:4318/v1/traces
+      - --tracing.serviceName=traefik
+      - --metrics.otlp=true
+      - --metrics.otlp.http.endpoint=http://observabilite:4318/v1/metrics
+      - --metrics.otlp.pushInterval=10s
     ports:
       # 8000 côté machine : le port 80 est souvent déjà pris.
       - "127.0.0.1:${TRAEFIK_PORT:-8000}:80"
@@ -427,6 +452,38 @@ services:
         limits:
           cpus: "1"
           memory: 256m
+
+  # Observabilité (ADR 017) : OpenTelemetry Collector, Prometheus (métriques), Tempo
+  # (traces), Loki (journaux) et Grafana, dans l'image locale tout-en-un grafana/otel-lgtm.
+  # Grafana : http://localhost:3000 (accès anonyme, développement uniquement).
+  # Les services ne dépendent pas de ce conteneur : s'il s'arrête, la vente continue et
+  # la télémétrie est abandonnée (ADR 017).
+  observabilite:
+    image: grafana/otel-lgtm:0.41.1
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
+      # OTLP pour les services lancés hors Docker (pnpm dev) : gRPC 4317, HTTP 4318.
+      - "127.0.0.1:${OTLP_GRPC_PORT:-4317}:4317"
+      - "127.0.0.1:${OTLP_HTTP_PORT:-4318}:4318"
+    volumes:
+      # Tableaux de bord versionnés dans le dépôt, chargés au démarrage (ADR 017).
+      - ./infra/observabilite/grafana/tableaux-de-bord.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/ticketrush.yaml:ro
+      - ./infra/observabilite/grafana/tableaux-de-bord:/otel-lgtm/ticketrush-dashboards:ro
+    healthcheck:
+      # Prêt quand le Collector reçoit et que Grafana répond.
+      test:
+        - CMD-SHELL
+        - curl -fs http://127.0.0.1:13133/ready >/dev/null && curl -fs http://127.0.0.1:3000/api/health >/dev/null
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2g
 
 volumes:
   postgres-data:

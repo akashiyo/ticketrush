@@ -18,6 +18,7 @@ import {
 } from "./infrastructure/http/authentification.js";
 import { FilesController } from "./infrastructure/http/files.controller.js";
 import { PublicsController } from "./infrastructure/http/publics.controller.js";
+import { MetriquesFile } from "./infrastructure/metriques.js";
 import { ProtectionRobots } from "./infrastructure/protection-robots.js";
 import { SignataireJose } from "./infrastructure/signataire-jose.js";
 
@@ -79,6 +80,7 @@ export const REDIS = Symbol("Redis");
       useFactory: (config: Config) => creerVerificateurKeycloak(config),
       inject: [CONFIG],
     },
+    MetriquesFile,
     AdmissionWorker,
   ],
 })
