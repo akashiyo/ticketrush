@@ -1,7 +1,8 @@
 # Cœur (P1)
 
-Monolithe modulaire NestJS (ADR 001, 002) : **Catalogue** (côté lecture) et **Réservation** ;
-Organisateurs s'ajoutera à côté. Il porte la garantie **zéro survente** (ADR 003, scénario C-1).
+Monolithe modulaire NestJS (ADR 001, 002) : **Organisateurs** écrit les événements, le
+**Catalogue** les projette et les sert, la **Réservation** les vend (ADR 023). Il porte la
+garantie **zéro survente** (ADR 003, scénario C-1).
 
 - Via Traefik : `http://localhost:8000/api/…` · accès direct (développement) : `http://localhost:3002`
 - Démarré par `docker compose up -d`, avec une **vente de démonstration** de 5 000 places
@@ -15,17 +16,43 @@ Organisateurs s'ajoutera à côté. Il porte la garantie **zéro survente** (ADR
 | `GET /catalogue/recherche?q=&ville=&genre=&du=AAAA-MM-JJ&au=AAAA-MM-JJ&page=&parPage=` | Recherche (fautes de frappe tolérées), filtres, tri par date ; servie par **Meilisearch seul** (ADR 014). `503` si l'index est indisponible |
 | `GET /catalogue/evenements/{id}`                                                       | Fiche d'un événement publié : salle, date, catégories, prix ; **cache-aside Redis** (ADR 015). `404` si inconnu                             |
 
-Chemin CQRS (ADR 014) : le Catalogue écrit dans le schéma `catalogue` et, dans la même transaction,
-`EvenementPublie` dans son Outbox → relais vers `catalogue.evenements` → projection (groupe
-`coeur-projection-catalogue`) → index `evenements` de Meilisearch. La projection ignore toute
-version plus ancienne que celle indexée : rejouer le topic reconstruit l'index à l'identique.
-`EvenementModifie` et `TarifModifie` invalident aussi la fiche en cache.
+Chemin CQRS (ADR 014, 023) : les Organisateurs écrivent dans le schéma `organisateurs` et, dans la
+même transaction, l'événement du contrat dans leur Outbox → relais vers `catalogue.evenements` →
+projection du Catalogue (groupe `coeur-projection-catalogue`) → deux vues : l'index `evenements`
+de Meilisearch et la table `catalogue.fiche`. Chaque vue ignore une version plus ancienne que la
+sienne : rejouer le topic reconstruit les vues à l'identique. La fiche en cache est invalidée à
+chaque événement projeté.
 
 Cache des fiches (ADR 015) : 10 min ± 10 %, un seul rechargement à la fois (verrou Redis contre
 l'avalanche), fiche inconnue retenue 30 s, lecture directe en base si Redis est en panne.
 
-Données de démonstration : 5 événements fictifs (Lyon, Nantes, Lille, Paris) ; le premier est la
-vente de 5 000 places.
+## API du back-office des organisateurs (module Organisateurs, ADR 016)
+
+Toutes les routes exigent un jeton Keycloak avec un rôle `organisateur-admin`,
+`organisateur-gestionnaire` ou `organisateur-lecteur` et un `organisation_id`. **Aucune route ne
+prend d'organisation en paramètre** : elle vient du jeton.
+
+| Route                                                     | Effet                                                                     | Rôle                |
+| --------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------- |
+| `GET /organisateur/evenements`                            | Ses événements, avec leurs ventes (places, vendues, bloquées, recette)    | tous                |
+| `GET /organisateur/evenements/{id}`                       | Un de ses événements ; `404` s'il est à une autre organisation            | tous                |
+| `POST /organisateur/evenements`                           | Créer un brouillon (titre, salle, date, 1 à 10 catégories)                | admin, gestionnaire |
+| `PATCH /organisateur/evenements/{id}`                     | Modifier titre, artiste, genre, date → `EvenementModifie` s'il est publié | admin, gestionnaire |
+| `PUT /organisateur/evenements/{id}/tarifs/{tarifId}/prix` | Nouveau prix → `TarifModifie` s'il est publié                             | admin, gestionnaire |
+| `POST /organisateur/evenements/{id}/publication`          | Publier → `EvenementPublie`                                               | admin, gestionnaire |
+| `GET /organisateur/journal`                               | Les 100 dernières lignes de son journal d'audit                           | tous                |
+| `GET /organisateur/salles`                                | Le référentiel des salles                                                 | tous                |
+
+Isolation (scénario S-3) : chaque transaction du back-office fixe l'organisation du jeton
+(`set_config('app.organisation_id', …, true)`) et endosse le rôle sans privilège
+`organisateurs_app` ; la Row-Level Security filtre `evenement`, `tarif` et `audit`. Aucune requête
+du dépôt ne filtre elle-même sur l'organisation : un oubli de `WHERE` ne peut pas fuiter. Le
+journal est en ajout seul (le rôle ne peut ni le modifier ni le supprimer). Politiques et droits :
+migration `organisateurs/infrastructure/migrations/0001_isolation_rls.sql`.
+
+Données de démonstration : 5 événements fictifs d'Alpha Productions (Lyon, Nantes, Lille, Paris) ;
+le premier est la vente de 5 000 places. Comptes de test : `alpha.gestion`, `alpha.admin`,
+`beta.admin`, `beta.lecteur` (infra/keycloak).
 
 ## API de la Réservation
 

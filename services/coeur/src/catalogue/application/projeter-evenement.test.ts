@@ -1,64 +1,71 @@
 import { describe, expect, it } from "vitest";
 
-import type { DocumentRecherche } from "../domaine/evenement.js";
-import type { IndexRecherche } from "../domaine/ports.js";
-import { ProjeterEvenement } from "./projeter-evenement.js";
+import type { VueEvenement } from "../domaine/evenement.js";
+import type { MagasinVues } from "../domaine/ports.js";
+import { type FaitCatalogue, ProjeterEvenement } from "./projeter-evenement.js";
 
-/** Index en mémoire : même comportement que Meilisearch pour lire et remplacer un document. */
-function indexEnMemoire(): IndexRecherche & { documents: Map<string, DocumentRecherche> } {
-  const documents = new Map<string, DocumentRecherche>();
+/** Magasin en mémoire : même comportement qu'un vrai pour lire et remplacer une vue. */
+function magasinEnMemoire(): MagasinVues & { vues: Map<string, VueEvenement> } {
+  const vues = new Map<string, VueEvenement>();
   return {
-    documents,
-    lire: async (id) => documents.get(id) ?? null,
-    indexer: async (d) => void documents.set(d.id, d),
-    rechercher: async () => ({ total: 0, page: 1, parPage: 20, evenements: [] }),
+    vues,
+    lire: async (id) => vues.get(id) ?? null,
+    ecrire: async (v) => void vues.set(v.evenementId, v),
   };
 }
 
-const document = (version: number, titre = "Concert"): DocumentRecherche => ({
-  id: "evt-1",
+const vue = (version: number, titre = "Concert"): VueEvenement => ({
+  evenementId: "evt-1",
   titre,
   artiste: "Artiste",
   genre: "Pop",
-  salle: "Arène",
-  ville: "Lyon",
+  salle: { nom: "Arène", ville: "Lyon" },
   debutLe: "2027-03-12T19:00:00.000Z",
-  debutLeTs: 1_804_878_000,
-  prixMinCentimes: 4500,
   categories: [
-    { categorieId: "fosse", libelle: "Fosse", prixCentimes: 4500 },
-    { categorieId: "cat1", libelle: "Catégorie 1", prixCentimes: 6500 },
+    {
+      categorieId: "fosse",
+      libelle: "Fosse",
+      placement: "libre",
+      capacite: 3000,
+      prixCentimes: 4500,
+    },
+    {
+      categorieId: "cat1",
+      libelle: "Catégorie 1",
+      placement: "numerote",
+      capacite: 2000,
+      prixCentimes: 6500,
+    },
   ],
   version,
 });
 
 describe("ProjeterEvenement", () => {
-  it("indexe un événement publié", async () => {
-    const index = indexEnMemoire();
-    expect(
-      await new ProjeterEvenement(index).executer({ type: "etat", document: document(1) }),
-    ).toBe("indexe");
-    expect(index.documents.get("evt-1")?.titre).toBe("Concert");
+  it("met à jour toutes les vues (index et fiches)", async () => {
+    const index = magasinEnMemoire();
+    const fiches = magasinEnMemoire();
+
+    await new ProjeterEvenement([index, fiches]).executer({ type: "etat", vue: vue(1) });
+
+    expect(index.vues.get("evt-1")?.titre).toBe("Concert");
+    expect(fiches.vues.get("evt-1")?.titre).toBe("Concert");
   });
 
-  it("ignore un doublon et un événement plus ancien (livraison au moins une fois, désordre)", async () => {
-    const index = indexEnMemoire();
-    const projeter = new ProjeterEvenement(index);
-    await projeter.executer({ type: "etat", document: document(2, "Version 2") });
+  it("ignore un doublon et un fait plus ancien (livraison au moins une fois, désordre)", async () => {
+    const magasin = magasinEnMemoire();
+    const projeter = new ProjeterEvenement([magasin]);
+    await projeter.executer({ type: "etat", vue: vue(2, "Version 2") });
 
-    expect(await projeter.executer({ type: "etat", document: document(2, "Doublon") })).toBe(
-      "ignore",
-    );
-    expect(await projeter.executer({ type: "etat", document: document(1, "Ancienne") })).toBe(
-      "ignore",
-    );
-    expect(index.documents.get("evt-1")?.titre).toBe("Version 2");
+    await projeter.executer({ type: "etat", vue: vue(2, "Doublon") });
+    await projeter.executer({ type: "etat", vue: vue(1, "Ancienne") });
+
+    expect(magasin.vues.get("evt-1")?.titre).toBe("Version 2");
   });
 
-  it("applique un nouveau tarif et recalcule le prix « à partir de »", async () => {
-    const index = indexEnMemoire();
-    const projeter = new ProjeterEvenement(index);
-    await projeter.executer({ type: "etat", document: document(1) });
+  it("applique un nouveau tarif à la vue enregistrée", async () => {
+    const magasin = magasinEnMemoire();
+    const projeter = new ProjeterEvenement([magasin]);
+    await projeter.executer({ type: "etat", vue: vue(1) });
 
     await projeter.executer({
       type: "tarif",
@@ -68,25 +75,34 @@ describe("ProjeterEvenement", () => {
       version: 2,
     });
 
-    const indexe = index.documents.get("evt-1");
-    expect(indexe?.categories.find((c) => c.categorieId === "fosse")?.prixCentimes).toBe(9900);
-    expect(indexe?.prixMinCentimes).toBe(6500);
-    expect(indexe?.version).toBe(2);
+    const v = magasin.vues.get("evt-1");
+    expect(v?.categories.find((c) => c.categorieId === "fosse")?.prixCentimes).toBe(9900);
+    expect(v?.version).toBe(2);
   });
 
-  it("rejouer toute l'histoire donne le même index", async () => {
-    const histoire = [
-      { type: "etat", document: document(1) },
+  it("un magasin resté en retard (panne) est rattrapé au rejeu ; l'autre ignore le doublon", async () => {
+    const index = magasinEnMemoire();
+    const fiches = magasinEnMemoire();
+    await new ProjeterEvenement([fiches]).executer({ type: "etat", vue: vue(1) });
+
+    await new ProjeterEvenement([index, fiches]).executer({ type: "etat", vue: vue(1) });
+
+    expect(index.vues.get("evt-1")?.version).toBe(1);
+  });
+
+  it("rejouer toute l'histoire donne les mêmes vues", async () => {
+    const histoire: FaitCatalogue[] = [
+      { type: "etat", vue: vue(1) },
       { type: "tarif", evenementId: "evt-1", categorieId: "fosse", prixCentimes: 5000, version: 2 },
-      { type: "etat", document: document(3, "Final") },
-    ] as const;
-    const index = indexEnMemoire();
-    const projeter = new ProjeterEvenement(index);
+      { type: "etat", vue: vue(3, "Final") },
+    ];
+    const magasin = magasinEnMemoire();
+    const projeter = new ProjeterEvenement([magasin]);
     for (const fait of histoire) await projeter.executer(fait);
-    const premierPassage = structuredClone(index.documents.get("evt-1"));
+    const premierPassage = structuredClone(magasin.vues.get("evt-1"));
 
     for (const fait of histoire) await projeter.executer(fait);
 
-    expect(index.documents.get("evt-1")).toEqual(premierPassage);
+    expect(magasin.vues.get("evt-1")).toEqual(premierPassage);
   });
 });

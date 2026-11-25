@@ -1,64 +1,50 @@
 import type { EtatEvenement, EvenementCatalogue } from "@ticketrush/contrats";
 
 import type { FaitCatalogue } from "../application/projeter-evenement.js";
-import { type DocumentRecherche, prixMinimum } from "../domaine/evenement.js";
+import type { VueEvenement } from "../domaine/evenement.js";
 
-/** Le document de recherche d'un événement, traduit depuis le contrat (langage publié). */
-export function versDocument(evenementId: string, etat: EtatEvenement): DocumentRecherche {
+/** La vue publique d'un événement, traduite depuis le contrat (langage publié). */
+export function versVue(evenementId: string, etat: EtatEvenement): VueEvenement {
   return {
-    id: evenementId,
+    evenementId,
     titre: etat.titre,
     artiste: etat.artiste ?? null,
     genre: etat.genre ?? null,
-    salle: etat.salle.nom,
-    ville: etat.salle.ville,
+    salle: { nom: etat.salle.nom, ville: etat.salle.ville },
     debutLe: etat.debutLe,
-    debutLeTs: Math.floor(new Date(etat.debutLe).getTime() / 1000),
-    prixMinCentimes: prixMinimum(etat.categories),
     categories: etat.categories.map((c) => ({
       categorieId: c.categorieId,
       libelle: c.libelle,
+      placement: c.placement,
+      capacite: c.capacite,
       prixCentimes: c.prixCentimes,
     })),
     version: etat.versionEvenement,
   };
 }
 
-export interface FaitTraduit {
-  fait: FaitCatalogue;
-  /** La fiche en cache est périmée : il faut l'invalider (ADR 015). */
-  invaliderFiche: boolean;
-}
-
 /**
  * Traduit un message du topic `catalogue.evenements` en fait pour la projection. Un type inconnu
  * (événement ajouté plus tard au contrat) est ignoré : lecteur tolérant (cours, partie 7).
  */
-export function traduireMessage(valeur: string): FaitTraduit | null {
+export function traduireMessage(valeur: string): FaitCatalogue | null {
   const evenement = JSON.parse(valeur) as EvenementCatalogue;
   switch (evenement.type) {
     case "EvenementPublie":
-      return {
-        fait: { type: "etat", document: versDocument(evenement.evenementId, evenement.donnees) },
-        invaliderFiche: false,
-      };
     case "EvenementModifie":
-      return {
-        fait: { type: "etat", document: versDocument(evenement.evenementId, evenement.donnees) },
-        invaliderFiche: true,
-      };
+      return { type: "etat", vue: versVue(evenement.evenementId, evenement.donnees) };
     case "TarifModifie":
       return {
-        fait: {
-          type: "tarif",
-          evenementId: evenement.evenementId,
-          categorieId: evenement.donnees.categorieId,
-          prixCentimes: evenement.donnees.prixCentimes,
-          version: evenement.donnees.versionEvenement,
-        },
-        invaliderFiche: true,
+        type: "tarif",
+        evenementId: evenement.evenementId,
+        categorieId: evenement.donnees.categorieId,
+        prixCentimes: evenement.donnees.prixCentimes,
+        version: evenement.donnees.versionEvenement,
       };
     default:
       return null;
   }
 }
+
+export const evenementDuFait = (fait: FaitCatalogue) =>
+  fait.type === "etat" ? fait.vue.evenementId : fait.evenementId;

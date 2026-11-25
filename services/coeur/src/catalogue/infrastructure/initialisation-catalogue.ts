@@ -1,12 +1,10 @@
 import { fileURLToPath } from "node:url";
 
-import { Inject, Injectable, Logger, type OnModuleInit } from "@nestjs/common";
+import { Inject, Injectable, type OnModuleInit } from "@nestjs/common";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 
 import { BASE } from "../../commun/base-de-donnees.js";
-import { CONFIG, type Config } from "../../commun/config.js";
-import { chargerCatalogueDemo } from "./donnees-demo.js";
 
 /** Applique les migrations du schéma `catalogue`, avec son propre journal (ADR 002). */
 export async function migrerCatalogue(db: NodePgDatabase): Promise<void> {
@@ -16,18 +14,12 @@ export async function migrerCatalogue(db: NodePgDatabase): Promise<void> {
   });
 }
 
-/** Au démarrage : migrations, puis catalogue de démonstration si demandé (ADR 022, M-2). */
+/** Au démarrage, la base est mise à jour avant d'accepter des requêtes (ADR 022, M-2). */
 @Injectable()
 export class InitialisationCatalogue implements OnModuleInit {
-  constructor(
-    @Inject(BASE) private readonly db: NodePgDatabase,
-    @Inject(CONFIG) private readonly config: Config,
-  ) {}
+  constructor(@Inject(BASE) private readonly db: NodePgDatabase) {}
 
   async onModuleInit(): Promise<void> {
     await migrerCatalogue(this.db);
-    if (this.config.donneesDemo && (await chargerCatalogueDemo(this.db))) {
-      new Logger("Catalogue").log("Catalogue de démonstration publié");
-    }
   }
 }

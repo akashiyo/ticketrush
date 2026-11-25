@@ -25,67 +25,63 @@ const etat = {
       capacite: 3000,
       prixCentimes: 4500,
     },
-    {
-      categorieId: "cat1",
-      libelle: "Cat. 1",
-      placement: "numerote" as const,
-      capacite: 2000,
-      prixCentimes: 6500,
-    },
   ],
   devise: "EUR" as const,
   versionEvenement: 1,
 };
 
 describe("traduireMessage (contrat → projection)", () => {
-  it("EvenementPublie : document de recherche complet, sans données privées", () => {
+  it("EvenementPublie : vue publique complète, sans l'organisation", () => {
     const publie: EvenementPublie = { ...enveloppe, type: "EvenementPublie", donnees: etat };
 
-    const traduit = traduireMessage(JSON.stringify(publie));
+    const fait = traduireMessage(JSON.stringify(publie));
 
-    expect(traduit).toEqual({
-      invaliderFiche: false,
-      fait: {
-        type: "etat",
-        document: {
-          id: "evt-1",
-          titre: "Concert",
-          artiste: "Artiste",
-          genre: "Pop",
-          salle: "Arène du Lac",
-          ville: "Lyon",
-          debutLe: "2027-03-12T19:00:00.000Z",
-          debutLeTs: 1804878000,
-          prixMinCentimes: 4500,
-          categories: [
-            { categorieId: "fosse", libelle: "Fosse", prixCentimes: 4500 },
-            { categorieId: "cat1", libelle: "Cat. 1", prixCentimes: 6500 },
-          ],
-          version: 1,
-        },
+    expect(fait).toEqual({
+      type: "etat",
+      vue: {
+        evenementId: "evt-1",
+        titre: "Concert",
+        artiste: "Artiste",
+        genre: "Pop",
+        salle: { nom: "Arène du Lac", ville: "Lyon" },
+        debutLe: "2027-03-12T19:00:00.000Z",
+        categories: [
+          {
+            categorieId: "fosse",
+            libelle: "Fosse",
+            placement: "libre",
+            capacite: 3000,
+            prixCentimes: 4500,
+          },
+        ],
+        version: 1,
       },
     });
-    expect(JSON.stringify(traduit)).not.toContain("org-1");
+    expect(JSON.stringify(fait)).not.toContain("org-1");
   });
 
-  it("EvenementModifie et TarifModifie invalident la fiche en cache", () => {
-    const modifie: EvenementModifie = { ...enveloppe, type: "EvenementModifie", donnees: etat };
+  it("EvenementModifie donne un état complet, TarifModifie un changement de prix", () => {
+    const modifie: EvenementModifie = {
+      ...enveloppe,
+      type: "EvenementModifie",
+      donnees: { ...etat, versionEvenement: 2 },
+    };
     const tarif: TarifModifie = {
       ...enveloppe,
       type: "TarifModifie",
-      donnees: { categorieId: "fosse", prixCentimes: 5000, devise: "EUR", versionEvenement: 2 },
+      donnees: { categorieId: "fosse", prixCentimes: 5000, devise: "EUR", versionEvenement: 3 },
     };
 
-    expect(traduireMessage(JSON.stringify(modifie))?.invaliderFiche).toBe(true);
+    expect(traduireMessage(JSON.stringify(modifie))).toMatchObject({
+      type: "etat",
+      vue: { version: 2 },
+    });
     expect(traduireMessage(JSON.stringify(tarif))).toEqual({
-      invaliderFiche: true,
-      fait: {
-        type: "tarif",
-        evenementId: "evt-1",
-        categorieId: "fosse",
-        prixCentimes: 5000,
-        version: 2,
-      },
+      type: "tarif",
+      evenementId: "evt-1",
+      categorieId: "fosse",
+      prixCentimes: 5000,
+      version: 3,
     });
   });
 

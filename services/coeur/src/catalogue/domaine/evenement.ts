@@ -1,45 +1,34 @@
 /**
- * Domaine du Catalogue, côté lecture (CQRS, ADR 014).
+ * Domaine du Catalogue : le **côté lecture** du CQRS (ADR 014, 023).
  *
- * Deux vues d'un même événement publié :
- * - la **fiche**, lue dans PostgreSQL derrière le cache Redis (ADR 015) ;
- * - le **document de recherche**, tenu à jour dans Meilisearch par la projection des événements.
+ * Le Catalogue n'écrit rien de lui-même : il reçoit les événements publiés par les Organisateurs
+ * et en tient deux vues à jour, l'index de recherche (Meilisearch) et les fiches (PostgreSQL,
+ * derrière le cache Redis de l'ADR 015).
  */
 
-export interface CategorieFiche {
+export interface CategorieVue {
   categorieId: string;
   libelle: string;
   placement: "numerote" | "libre";
-  prixCentimes: number;
   capacite: number;
+  prixCentimes: number;
 }
 
-export interface FicheEvenement {
+/** Ce que le public voit d'un événement publié : uniquement des données publiques. */
+export interface VueEvenement {
   evenementId: string;
   titre: string;
   artiste: string | null;
   genre: string | null;
   salle: { nom: string; ville: string };
   debutLe: string;
-  categories: CategorieFiche[];
-}
-
-/** Ce que contient l'index de recherche : uniquement des données publiques (ADR 014). */
-export interface DocumentRecherche {
-  id: string;
-  titre: string;
-  artiste: string | null;
-  genre: string | null;
-  salle: string;
-  ville: string;
-  debutLe: string;
-  /** La date en secondes : Meilisearch ne filtre que des nombres. */
-  debutLeTs: number;
-  prixMinCentimes: number;
-  categories: { categorieId: string; libelle: string; prixCentimes: number }[];
-  /** Version de l'événement : une mise à jour plus ancienne que celle indexée est ignorée. */
+  categories: CategorieVue[];
+  /** Version de l'événement : une mise à jour plus ancienne que celle enregistrée est ignorée. */
   version: number;
 }
+
+/** La fiche affichée : la vue, sans sa version technique. */
+export type FicheEvenement = Omit<VueEvenement, "version">;
 
 export interface CriteresRecherche {
   texte: string;
@@ -53,7 +42,16 @@ export interface CriteresRecherche {
   parPage: number;
 }
 
-export type EvenementTrouve = Omit<DocumentRecherche, "version" | "debutLeTs">;
+export interface EvenementTrouve {
+  id: string;
+  titre: string;
+  artiste: string | null;
+  genre: string | null;
+  salle: string;
+  ville: string;
+  debutLe: string;
+  prixMinCentimes: number;
+}
 
 export interface ResultatRecherche {
   total: number;

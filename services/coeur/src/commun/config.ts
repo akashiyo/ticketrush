@@ -23,6 +23,8 @@ export interface Config {
   meiliCle: string;
   /** Brokers Redpanda pour le relais de l'Outbox (ADR 006, 007). */
   kafkaBrokers: string[];
+  /** Démarre les consommateurs d'événements (projection du catalogue) ; désactivé dans les tests. */
+  consommateursActifs: boolean;
   /** Intervalle du relais de l'Outbox ; 0 le désactive. */
   relaisIntervalleMs: number;
   /** Intervalle de libération des blocages expirés ; 0 le désactive. */
@@ -52,6 +54,7 @@ export function lireConfig(env: NodeJS.ProcessEnv = process.env): Config {
     meiliUrl: env.MEILI_URL ?? "http://localhost:7700",
     meiliCle: env.MEILI_CLE ?? "ticketrush_dev_meili_cle_maitre",
     kafkaBrokers: (env.KAFKA_BROKERS ?? "localhost:19092").split(","),
+    consommateursActifs: env.CONSOMMATEURS_ACTIFS !== "false",
     relaisIntervalleMs: Number(env.RELAIS_INTERVALLE_MS ?? 200),
     expirationIntervalleMs: Number(env.EXPIRATION_INTERVALLE_MS ?? 5_000),
     donneesDemo: env.DONNEES_DEMO === "true",

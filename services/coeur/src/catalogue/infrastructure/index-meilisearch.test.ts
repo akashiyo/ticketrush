@@ -2,7 +2,7 @@ import { GenericContainer, Wait } from "testcontainers";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { dockerDisponible } from "../../test/postgres-de-test.js";
-import type { DocumentRecherche } from "../domaine/evenement.js";
+import type { VueEvenement } from "../domaine/evenement.js";
 import { construireFiltre, IndexMeilisearch } from "./index-meilisearch.js";
 
 describe("construireFiltre", () => {
@@ -10,7 +10,7 @@ describe("construireFiltre", () => {
     expect(
       construireFiltre({
         texte: "",
-        ville: 'Lyon" OR ville = "Paris',
+        ville: 'Lyon" OR salle.ville = "Paris',
         genre: "Jazz",
         du: new Date("2027-03-01T00:00:00Z"),
         avant: new Date("2027-04-01T00:00:00Z"),
@@ -18,7 +18,7 @@ describe("construireFiltre", () => {
         parPage: 20,
       }),
     ).toEqual([
-      'ville = "Lyon\\" OR ville = \\"Paris"',
+      'salle.ville = "Lyon\\" OR salle.ville = \\"Paris"',
       'genre = "Jazz"',
       "debutLeTs >= 1803859200",
       "debutLeTs < 1806537600",
@@ -26,17 +26,16 @@ describe("construireFiltre", () => {
   });
 });
 
-const doc = (id: string, titre: string, ville: string, debutLe: string): DocumentRecherche => ({
-  id,
+const vue = (id: string, titre: string, ville: string, debutLe: string): VueEvenement => ({
+  evenementId: id,
   titre,
   artiste: null,
   genre: "Pop",
-  salle: "Salle",
-  ville,
+  salle: { nom: "Salle", ville },
   debutLe,
-  debutLeTs: Math.floor(new Date(debutLe).getTime() / 1000),
-  prixMinCentimes: 4500,
-  categories: [],
+  categories: [
+    { categorieId: "c", libelle: "Fosse", placement: "libre", capacite: 100, prixCentimes: 4500 },
+  ],
   version: 1,
 });
 
@@ -56,35 +55,36 @@ describe.skipIf(!(await dockerDisponible()))("IndexMeilisearch (Meilisearch rée
       `http://${conteneur.getHost()}:${conteneur.getMappedPort(7700)}`,
       "cle-de-test-assez-longue",
     );
-    await index.indexer(doc("a", "Les Électrons Libres", "Lyon", "2027-03-12T19:00:00Z"));
-    await index.indexer(doc("b", "Nuit Jazz au Port", "Nantes", "2027-02-05T20:00:00Z"));
-    await index.indexer(doc("c", "Électro sous les étoiles", "Lyon", "2027-06-21T20:00:00Z"));
+    await index.ecrire(vue("a", "Les Électrons Libres", "Lyon", "2027-03-12T19:00:00Z"));
+    await index.ecrire(vue("b", "Nuit Jazz au Port", "Nantes", "2027-02-05T20:00:00Z"));
+    await index.ecrire(vue("c", "Électro sous les étoiles", "Lyon", "2027-06-21T20:00:00Z"));
   });
 
   afterAll(async () => arreter?.());
 
-  it("lit un document indexé, ou null s'il est inconnu", async () => {
-    expect((await index.lire("a"))?.version).toBe(1);
+  it("relit la vue écrite, ou null si l'événement est inconnu", async () => {
+    expect(await index.lire("a")).toEqual(
+      vue("a", "Les Électrons Libres", "Lyon", "2027-03-12T19:00:00Z"),
+    );
     expect(await index.lire("inconnu")).toBeNull();
   });
 
-  it("tolère les fautes de frappe et trie par date", async () => {
+  it("tolère les fautes de frappe ; renvoie le prix « à partir de »", async () => {
     const resultat = await index.rechercher({ texte: "electrns", page: 1, parPage: 20 });
-    expect(resultat.evenements.map((e) => e.id)).toEqual(["a"]);
-    expect(resultat.evenements[0]).not.toHaveProperty("version");
+    expect(resultat.evenements).toMatchObject([{ id: "a", ville: "Lyon", prixMinCentimes: 4500 }]);
   });
 
-  it("filtre par ville et par dates", async () => {
+  it("filtre par ville et par dates, trie par date", async () => {
     const lyon = await index.rechercher({ texte: "", ville: "Lyon", page: 1, parPage: 20 });
     expect(lyon.evenements.map((e) => e.id)).toEqual(["a", "c"]);
 
-    const printemps = await index.rechercher({
+    const mars = await index.rechercher({
       texte: "",
       du: new Date("2027-03-01T00:00:00Z"),
       avant: new Date("2027-04-01T00:00:00Z"),
       page: 1,
       parPage: 20,
     });
-    expect(printemps.total).toBe(1);
+    expect(mars.total).toBe(1);
   });
 });

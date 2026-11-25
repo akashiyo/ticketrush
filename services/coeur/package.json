@@ -9,13 +9,14 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && node -e \"for (const m of ['reservation','catalogue']) require('node:fs').cpSync('src/'+m+'/infrastructure/migrations','dist/'+m+'/infrastructure/migrations',{recursive:true})\"",
+    "build": "tsc -p tsconfig.build.json && node -e \"for (const m of ['reservation','catalogue','organisateurs']) require('node:fs').cpSync('src/'+m+'/infrastructure/migrations','dist/'+m+'/infrastructure/migrations',{recursive:true})\"",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "start": "node dist/main.js",
     "dependances": "depcruise src --config .dependency-cruiser.cjs",
     "migrations:reservation": "drizzle-kit generate --config drizzle.reservation.config.ts",
-    "migrations:catalogue": "drizzle-kit generate --config drizzle.catalogue.config.ts"
+    "migrations:catalogue": "drizzle-kit generate --config drizzle.catalogue.config.ts",
+    "migrations:organisateurs": "drizzle-kit generate --config drizzle.organisateurs.config.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.2.12",

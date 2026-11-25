@@ -4,3 +4,9 @@
  * dependency-cruiser (.dependency-cruiser.cjs).
  */
 export { ReservationModule } from "../infrastructure/reservation.module.js";
+/** Les ventes par événement, pour le dashboard des organisateurs. */
+export {
+  STATISTIQUES_VENTES,
+  type StatistiquesVentes,
+  type VentesEvenement,
+} from "../domaine/ports.js";

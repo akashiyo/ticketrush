@@ -55,6 +55,11 @@ export type RequeteAuthentifiee = Request & { utilisateur: Utilisateur };
 
 /** Garde qui exige un jeton Keycloak valide portant le rôle demandé. */
 export function ExigerRole(role: string): Type<CanActivate> {
+  return ExigerUnDesRoles([role]);
+}
+
+/** Garde qui exige un jeton Keycloak valide portant au moins un des rôles demandés. */
+export function ExigerUnDesRoles(rolesAcceptes: readonly string[]): Type<CanActivate> {
   @Injectable()
   class GardeRole implements CanActivate {
     constructor(@Inject(VERIFICATEUR_JETON) private readonly verifier: VerificateurJeton) {}
@@ -72,8 +77,8 @@ export function ExigerRole(role: string): Type<CanActivate> {
         throw new UnauthorizedException("Jeton invalide ou expiré");
       }
       const roles = (contenu.realm_access as { roles?: string[] } | undefined)?.roles ?? [];
-      if (!contenu.sub || !roles.includes(role)) {
-        throw new ForbiddenException(`Rôle « ${role} » requis`);
+      if (!contenu.sub || !rolesAcceptes.some((r) => roles.includes(r))) {
+        throw new ForbiddenException(`Rôle requis : ${rolesAcceptes.join(" ou ")}`);
       }
       const organisationId =
         typeof contenu.organisation_id === "string" ? contenu.organisation_id : null;

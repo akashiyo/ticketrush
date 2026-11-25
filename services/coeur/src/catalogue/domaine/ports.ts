@@ -1,19 +1,23 @@
 import type {
   CriteresRecherche,
-  DocumentRecherche,
   FicheEvenement,
   ResultatRecherche,
+  VueEvenement,
 } from "./evenement.js";
 
+/** Un magasin de vues tenu à jour par la projection (index de recherche, table des fiches). */
+export interface MagasinVues {
+  lire(evenementId: string): Promise<VueEvenement | null>;
+  /** Ajoute ou remplace la vue ; visible au retour de l'appel. */
+  ecrire(vue: VueEvenement): Promise<void>;
+}
+
 /** Index de recherche du catalogue (implémenté avec Meilisearch, ADR 014). */
-export interface IndexRecherche {
-  lire(evenementId: string): Promise<DocumentRecherche | null>;
-  /** Ajoute ou remplace le document ; visible dans les recherches au retour de l'appel. */
-  indexer(document: DocumentRecherche): Promise<void>;
+export interface IndexRecherche extends MagasinVues {
   rechercher(criteres: CriteresRecherche): Promise<ResultatRecherche>;
 }
 
-/** Fiche d'un événement publié ; null s'il est inconnu ou pas encore publié. */
+/** Fiche d'un événement publié ; null s'il est inconnu. */
 export interface LectureFiche {
   lire(evenementId: string): Promise<FicheEvenement | null>;
 }

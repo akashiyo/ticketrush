@@ -39,6 +39,19 @@ export interface LecturePlan {
   lire(evenementId: string): Promise<PlanDeSalle | null>;
 }
 
+export interface VentesEvenement {
+  places: number;
+  vendues: number;
+  /** Bloquées et pas encore expirées. */
+  bloquees: number;
+  recetteCentimes: number;
+}
+
+/** Les ventes de quelques événements, pour le dashboard des organisateurs (module Organisateurs). */
+export interface StatistiquesVentes {
+  parEvenement(evenementIds: string[]): Promise<Map<string, VentesEvenement>>;
+}
+
 /** Port de vérification du jeton d'accès émis par la File d'attente (ADR 011). */
 export interface VerificateurAdmission {
   /** Vérifie signature, émetteur, audience et expiration ; lève une AdmissionRefusee sinon. */
@@ -51,6 +64,7 @@ export type Horloge = () => Date;
 export const DEPOT_SIEGES = Symbol("DepotSieges");
 export const DEPOT_RESERVATIONS = Symbol("DepotReservations");
 export const LECTURE_PLAN = Symbol("LecturePlan");
+export const STATISTIQUES_VENTES = Symbol("StatistiquesVentes");
 export const PASSERELLE_PAIEMENT = Symbol("PasserelleDePaiement");
 export const VERIFICATEUR_ADMISSION = Symbol("VerificateurAdmission");
 export const GENERATEUR_ID = Symbol("GenerateurId");

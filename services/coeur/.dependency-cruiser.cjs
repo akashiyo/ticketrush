@@ -23,7 +23,8 @@ module.exports = {
         "Hexagonal (ADR 020) : le domaine ne dépend que de lui-même. Ni application, ni " +
         "infrastructure, ni bibliothèque (NestJS, Drizzle, pg, jose...).",
       severity: "error",
-      from: { path: "^src/([^/]+)/domaine/" },
+      // Les tests du domaine utilisent Vitest : la règle vise le code de production.
+      from: { path: "^src/([^/]+)/domaine/", pathNot: "\\.test\\.ts$" },
       to: { pathNot: ["^src/$1/domaine/"], dependencyTypesNot: ["core"] },
     },
     {

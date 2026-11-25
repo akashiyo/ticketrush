@@ -18,6 +18,7 @@ import {
   type Horloge,
   LECTURE_PLAN,
   PASSERELLE_PAIEMENT,
+  STATISTIQUES_VENTES,
   type PasserelleDePaiement,
   VERIFICATEUR_ADMISSION,
   type VerificateurAdmission,
@@ -31,6 +32,7 @@ import { InitialisationReservation } from "./migrations-reservation.js";
 import { Disjoncteur } from "./paiement/disjoncteur.js";
 import { creerFournisseurJetonService } from "./paiement/jeton-service.js";
 import { PasserelleFauxPaiement } from "./paiement/passerelle-faux-paiement.js";
+import { StatistiquesVentesPostgres } from "./statistiques-ventes-postgres.js";
 import { TachesPeriodiques } from "./taches-periodiques.js";
 import { creerVerificateurAdmissionFile } from "./verificateur-admission-jose.js";
 
@@ -62,6 +64,13 @@ import { creerVerificateurAdmissionFile } from "./verificateur-admission-jose.js
     {
       provide: LECTURE_PLAN,
       useFactory: (db: NodePgDatabase) => new LecturePlanEnCache(new LecturePlanPostgres(db)),
+      inject: [BASE],
+    },
+
+    // Ventes par événement, lues par le dashboard des organisateurs
+    {
+      provide: STATISTIQUES_VENTES,
+      useFactory: (db: NodePgDatabase) => new StatistiquesVentesPostgres(db),
       inject: [BASE],
     },
 
@@ -106,5 +115,6 @@ import { creerVerificateurAdmissionFile } from "./verificateur-admission-jose.js
       inject: [DEPOT_RESERVATIONS, PASSERELLE_PAIEMENT, HORLOGE],
     },
   ],
+  exports: [STATISTIQUES_VENTES],
 })
 export class ReservationModule {}
