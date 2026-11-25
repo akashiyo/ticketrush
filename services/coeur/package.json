@@ -9,12 +9,13 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && node -e \"require('node:fs').cpSync('src/reservation/infrastructure/migrations','dist/reservation/infrastructure/migrations',{recursive:true})\"",
+    "build": "tsc -p tsconfig.build.json && node -e \"for (const m of ['reservation','catalogue']) require('node:fs').cpSync('src/'+m+'/infrastructure/migrations','dist/'+m+'/infrastructure/migrations',{recursive:true})\"",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "start": "node dist/main.js",
     "dependances": "depcruise src --config .dependency-cruiser.cjs",
-    "migrations:reservation": "drizzle-kit generate --config drizzle.reservation.config.ts"
+    "migrations:reservation": "drizzle-kit generate --config drizzle.reservation.config.ts",
+    "migrations:catalogue": "drizzle-kit generate --config drizzle.catalogue.config.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.2.12",
@@ -22,8 +23,10 @@
     "@nestjs/platform-express": "^11.2.12",
     "@ticketrush/contrats": "workspace:*",
     "drizzle-orm": "^0.45.4",
+    "ioredis": "^6.1.0",
     "jose": "^6.2.18",
     "kafkajs": "^2.2.4",
+    "meilisearch": "^0.63.0",
     "pg": "^8.23.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",

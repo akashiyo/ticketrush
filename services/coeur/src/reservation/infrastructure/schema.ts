@@ -6,17 +6,17 @@
  */
 import { sql } from "drizzle-orm";
 import {
-  bigserial,
   check,
   index,
   integer,
-  jsonb,
   pgSchema,
   text,
   timestamp,
   unique,
   uuid,
 } from "drizzle-orm/pg-core";
+
+import { tableOutbox } from "../../commun/evenements/outbox.js";
 
 export const schemaReservation = pgSchema("reservation");
 
@@ -119,26 +119,4 @@ export const billet = schemaReservation.table(
 );
 
 /** Événements à publier sur Redpanda, écrits dans la même transaction que l'effet métier (ADR 007). */
-export const outbox = schemaReservation.table(
-  "outbox",
-  {
-    id: uuid("id").primaryKey(),
-    /** Ordre d'écriture : le relais publie dans cet ordre (deux événements d'une même transaction). */
-    ordre: bigserial("ordre", { mode: "number" }).notNull(),
-    topic: text("topic").notNull(),
-    /** Clé de partition : l'identifiant de l'événement (le spectacle). */
-    cle: text("cle").notNull(),
-    type: text("type").notNull(),
-    /** L'enveloppe complète, au format du contrat (packages/contrats). */
-    contenu: jsonb("contenu").notNull(),
-    /** Contexte de trace OpenTelemetry (ADR 017). */
-    traceparent: text("traceparent"),
-    creeLe: timestamp("cree_le", { withTimezone: true }).notNull().defaultNow(),
-    publieLe: timestamp("publie_le", { withTimezone: true }),
-  },
-  (t) => [
-    index("outbox_a_publier_idx")
-      .on(t.ordre)
-      .where(sql`publie_le IS NULL`),
-  ],
-);
+export const outbox = tableOutbox(schemaReservation);

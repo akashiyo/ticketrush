@@ -1,14 +1,33 @@
 # Cœur (P1)
 
-Monolithe modulaire NestJS (ADR 001, 002) : **Réservation** pour l'instant ; Catalogue et
-Organisateurs s'ajouteront à côté. Il porte la garantie **zéro survente** (ADR 003, scénario C-1).
+Monolithe modulaire NestJS (ADR 001, 002) : **Catalogue** (côté lecture) et **Réservation** ;
+Organisateurs s'ajoutera à côté. Il porte la garantie **zéro survente** (ADR 003, scénario C-1).
 
 - Via Traefik : `http://localhost:8000/api/…` · accès direct (développement) : `http://localhost:3002`
 - Démarré par `docker compose up -d`, avec une **vente de démonstration** de 5 000 places
   (3 000 en fosse à 45 €, 2 000 numérotées A-1 à T-100 à 65 €) :
   événement `7e1d5c2a-3b4f-4c6d-8e9f-0a1b2c3d4e50`, fosse `…4e51`, catégorie 1 `…4e52`.
 
-## API
+## API du Catalogue (publique, sans connexion)
+
+| Route                                                                                  | Effet                                                                                                                                       |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /catalogue/recherche?q=&ville=&genre=&du=AAAA-MM-JJ&au=AAAA-MM-JJ&page=&parPage=` | Recherche (fautes de frappe tolérées), filtres, tri par date ; servie par **Meilisearch seul** (ADR 014). `503` si l'index est indisponible |
+| `GET /catalogue/evenements/{id}`                                                       | Fiche d'un événement publié : salle, date, catégories, prix ; **cache-aside Redis** (ADR 015). `404` si inconnu                             |
+
+Chemin CQRS (ADR 014) : le Catalogue écrit dans le schéma `catalogue` et, dans la même transaction,
+`EvenementPublie` dans son Outbox → relais vers `catalogue.evenements` → projection (groupe
+`coeur-projection-catalogue`) → index `evenements` de Meilisearch. La projection ignore toute
+version plus ancienne que celle indexée : rejouer le topic reconstruit l'index à l'identique.
+`EvenementModifie` et `TarifModifie` invalident aussi la fiche en cache.
+
+Cache des fiches (ADR 015) : 10 min ± 10 %, un seul rechargement à la fois (verrou Redis contre
+l'avalanche), fiche inconnue retenue 30 s, lecture directe en base si Redis est en panne.
+
+Données de démonstration : 5 événements fictifs (Lyon, Nantes, Lille, Paris) ; le premier est la
+vente de 5 000 places.
+
+## API de la Réservation
 
 Toutes les routes exigent `Authorization: Bearer <jeton Keycloak>` avec le rôle `acheteur`.
 
@@ -95,5 +114,7 @@ sur la machine, ils sont **sautés** ; en CI (variable `CI`), ils ne le sont jam
 | `PAIEMENT_URL`                                                       | `http://localhost:3003`                                                  |
 | `PAIEMENT_JETON_URL`, `PAIEMENT_CLIENT_ID`, `PAIEMENT_CLIENT_SECRET` | jeton de service Keycloak du client `ticketrush-coeur`                   |
 | `KAFKA_BROKERS`                                                      | `localhost:19092`                                                        |
+| `REDIS_URL`                                                          | `redis://localhost:6379`                                                 |
+| `MEILI_URL`, `MEILI_CLE`                                             | `http://localhost:7700`, clé maître de développement                     |
 | `RELAIS_INTERVALLE_MS`, `EXPIRATION_INTERVALLE_MS`                   | `200`, `5000` (`0` désactive)                                            |
 | `DONNEES_DEMO`                                                       | `false` (`true` dans le Compose)                                         |

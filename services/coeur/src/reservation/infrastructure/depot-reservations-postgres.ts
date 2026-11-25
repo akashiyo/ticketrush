@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
 
-import type { BilletEmis } from "@ticketrush/contrats";
+import { type BilletEmis, TOPIC_VENTES } from "@ticketrush/contrats";
 import { and, eq, inArray } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 import type { DepotReservations, GenerateurId } from "../domaine/ports.js";
 import type { Billet, Reservation } from "../domaine/reservation.js";
-import { versOutbox } from "./outbox/ligne-outbox.js";
+import { versOutbox } from "../../commun/evenements/outbox.js";
 import { billet, outbox, reservation, siege } from "./schema.js";
 
 /** Réservations et émission des billets dans PostgreSQL (ADR 003, 007). */
@@ -89,7 +89,7 @@ export class DepotReservationsPostgres implements DepotReservations {
           devise: "EUR",
         },
       };
-      await tx.insert(outbox).values(versOutbox(evenement));
+      await tx.insert(outbox).values(versOutbox(TOPIC_VENTES, evenement));
       return versBillet(emis);
     });
   }

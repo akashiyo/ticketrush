@@ -294,9 +294,10 @@ services:
           cpus: "1"
           memory: 384m
 
-  # Cœur (P1) : Réservation (blocage atomique, paiement, billet), Outbox (ADR 001, 003, 005, 007).
-  # Les migrations s'appliquent au démarrage ; une vente de démonstration de 5 000 places est
-  # chargée (DONNEES_DEMO) : 7e1d5c2a-3b4f-4c6d-8e9f-0a1b2c3d4e50.
+  # Cœur (P1) : Catalogue (recherche, fiches) et Réservation (blocage atomique, paiement, billet),
+  # Outbox (ADR 001, 003, 005, 007, 014, 015). Les migrations s'appliquent au démarrage ; un
+  # catalogue de démonstration est publié et une vente de 5 000 places est chargée (DONNEES_DEMO) :
+  # 7e1d5c2a-3b4f-4c6d-8e9f-0a1b2c3d4e50.
   coeur:
     build:
       context: .
@@ -308,8 +309,16 @@ services:
         condition: service_healthy
       redpanda:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
     environment:
       PORT: "3000"
+      # Cache des fiches d'événement (ADR 015) et modèle de lecture du catalogue (ADR 014).
+      REDIS_URL: redis://redis:6379
+      MEILI_URL: http://meilisearch:7700
+      MEILI_CLE: ${MEILI_MASTER_KEY:-ticketrush_dev_meili_cle_maitre}
       DATABASE_URL: postgres://${POSTGRES_USER:-ticketrush}:${POSTGRES_PASSWORD:-ticketrush_dev}@postgres:5432/${POSTGRES_DB:-ticketrush}
       # Jetons des acheteurs et organisateurs, émis par Keycloak (ADR 010).
       AUTH_EMETTEUR: http://localhost:${KEYCLOAK_PORT:-8180}/realms/ticketrush

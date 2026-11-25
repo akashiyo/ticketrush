@@ -3,26 +3,14 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
+import { VENTE_DEMO } from "../../commun/vente-demo.js";
 import { categorie, siege } from "./schema.js";
 
 /**
- * Vente de démonstration du squelette : 5 000 places, comme le test de charge (C-1).
- * Remplacée plus tard par les places générées à la publication d'un événement par le Catalogue.
- * Identifiants fixes, pour que la File d'attente, le navigateur et k6 visent la même vente.
+ * Places de la vente de démonstration du squelette : 5 000 places, comme le test de charge (C-1).
+ * Remplacées plus tard par les places générées à la publication d'un événement par le Catalogue.
  */
-export const VENTE_DEMO = {
-  evenementId: "7e1d5c2a-3b4f-4c6d-8e9f-0a1b2c3d4e50",
-  /** Alpha Productions, organisation de test du domaine Keycloak (infra/keycloak). */
-  organisationId: "6f1c3a52-8d2e-4b7a-9c41-1a2b3c4d5e01",
-  fosse: { id: "7e1d5c2a-3b4f-4c6d-8e9f-0a1b2c3d4e51", places: 3_000, prixCentimes: 4_500 },
-  /** Places numérotées : rangs A à T, 100 sièges par rang. */
-  categorie1: {
-    id: "7e1d5c2a-3b4f-4c6d-8e9f-0a1b2c3d4e52",
-    rangs: 20,
-    parRang: 100,
-    prixCentimes: 6_500,
-  },
-} as const;
+export { VENTE_DEMO };
 
 /** Crée la vente de démonstration si elle n'existe pas encore (sans effet au redémarrage). */
 export async function chargerVenteDemo(db: NodePgDatabase): Promise<boolean> {

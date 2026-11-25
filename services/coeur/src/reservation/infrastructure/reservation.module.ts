@@ -28,8 +28,6 @@ import { ReservationsController } from "./http/reservations.controller.js";
 import { LecturePlanEnCache } from "./lecture-plan-en-cache.js";
 import { LecturePlanPostgres } from "./lecture-plan-postgres.js";
 import { InitialisationReservation } from "./migrations-reservation.js";
-import { ProducteurKafka } from "./outbox/producteur-kafka.js";
-import { RelaisOutbox } from "./outbox/relais-outbox.js";
 import { Disjoncteur } from "./paiement/disjoncteur.js";
 import { creerFournisseurJetonService } from "./paiement/jeton-service.js";
 import { PasserelleFauxPaiement } from "./paiement/passerelle-faux-paiement.js";
@@ -89,19 +87,6 @@ import { creerVerificateurAdmissionFile } from "./verificateur-admission-jose.js
           disjoncteur: new Disjoncteur(),
         }),
       inject: [CONFIG],
-    },
-
-    // Outbox → Redpanda (ADR 006, 007)
-    {
-      provide: ProducteurKafka,
-      useFactory: (config: Config) => new ProducteurKafka(config.kafkaBrokers),
-      inject: [CONFIG],
-    },
-    {
-      provide: RelaisOutbox,
-      useFactory: (db: NodePgDatabase, producteur: ProducteurKafka) =>
-        new RelaisOutbox(db, producteur),
-      inject: [BASE, ProducteurKafka],
     },
 
     // Cas d'usage

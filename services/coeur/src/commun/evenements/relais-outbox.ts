@@ -1,7 +1,7 @@
 import { inArray, isNull, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
-import { outbox } from "../schema.js";
+import type { TableOutbox } from "./outbox.js";
 
 export interface MessageAPublier {
   topic: string;
@@ -16,8 +16,8 @@ export interface ProducteurEvenements {
 }
 
 /**
- * Relais de l'Outbox (ADR 007) : lit un lot d'événements non publiés, les envoie au broker,
- * puis les marque publiés, dans une transaction.
+ * Relais de l'Outbox d'un module (ADR 007) : lit un lot d'événements non publiés, les envoie au
+ * broker, puis les marque publiés, dans une transaction.
  *
  * - Livraison **au moins une fois** : si le Cœur tombe après l'envoi mais avant le COMMIT, le
  *   lot sera renvoyé. Les consommateurs ignorent les doublons grâce à l'`id` de l'enveloppe.
@@ -28,12 +28,14 @@ export interface ProducteurEvenements {
 export class RelaisOutbox {
   constructor(
     private readonly db: NodePgDatabase,
+    private readonly outbox: TableOutbox,
     private readonly producteur: ProducteurEvenements,
     private readonly taille = 500,
   ) {}
 
   /** Publie un lot ; renvoie le nombre d'événements publiés. */
   async publierUnLot(): Promise<number> {
+    const outbox = this.outbox;
     return this.db.transaction(async (tx) => {
       const lot = await tx
         .select()

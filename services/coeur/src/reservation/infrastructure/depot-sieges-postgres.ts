@@ -1,10 +1,10 @@
-import type { BlocageExpire, PlaceBloquee } from "@ticketrush/contrats";
+import { type BlocageExpire, type PlaceBloquee, TOPIC_VENTES } from "@ticketrush/contrats";
 import { and, eq, inArray, lt, or, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 import type { Blocage, DemandeBlocage } from "../domaine/blocage.js";
 import type { DepotSieges, GenerateurId } from "../domaine/ports.js";
-import { versOutbox } from "./outbox/ligne-outbox.js";
+import { versOutbox } from "../../commun/evenements/outbox.js";
 import { categorie, outbox, reservation, siege } from "./schema.js";
 
 type Transaction = Parameters<Parameters<NodePgDatabase["transaction"]>[0]>[0];
@@ -121,7 +121,7 @@ export class DepotSiegesPostgres implements DepotSieges {
           bloqueJusqua: blocage.bloqueJusqua.toISOString(),
         },
       };
-      await tx.insert(outbox).values(versOutbox(evenement));
+      await tx.insert(outbox).values(versOutbox(TOPIC_VENTES, evenement));
 
       return blocage;
     });
@@ -190,7 +190,7 @@ export class DepotSiegesPostgres implements DepotSieges {
             categorieId: b.categorieId,
           },
         };
-        return versOutbox(evenement);
+        return versOutbox(TOPIC_VENTES, evenement);
       }),
     );
   }

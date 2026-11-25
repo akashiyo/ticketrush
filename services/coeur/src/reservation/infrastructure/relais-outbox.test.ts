@@ -4,13 +4,13 @@ import { isNull } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { demarrerPostgres, dockerDisponible } from "../../../test/postgres-de-test.js";
-import { creerVenteDeTest } from "../../../test/vente-de-test.js";
-import { DUREE_BLOCAGE_SEC } from "../../domaine/blocage.js";
-import { DepotSiegesPostgres } from "../depot-sieges-postgres.js";
-import { migrerReservation } from "../migrations-reservation.js";
-import { outbox } from "../schema.js";
-import { type MessageAPublier, RelaisOutbox } from "./relais-outbox.js";
+import { type MessageAPublier, RelaisOutbox } from "../../commun/evenements/relais-outbox.js";
+import { demarrerPostgres, dockerDisponible } from "../../test/postgres-de-test.js";
+import { creerVenteDeTest } from "../../test/vente-de-test.js";
+import { DUREE_BLOCAGE_SEC } from "../domaine/blocage.js";
+import { DepotSiegesPostgres } from "./depot-sieges-postgres.js";
+import { migrerReservation } from "./migrations-reservation.js";
+import { outbox } from "./schema.js";
 
 /** Relais de l'Outbox (ADR 007) : un vrai PostgreSQL, un broker simulé. */
 describe.skipIf(!(await dockerDisponible()))("RelaisOutbox (PostgreSQL réel)", () => {
@@ -23,7 +23,7 @@ describe.skipIf(!(await dockerDisponible()))("RelaisOutbox (PostgreSQL réel)", 
   beforeAll(async () => {
     ({ db, arreter } = await demarrerPostgres());
     await migrerReservation(db);
-    relais = new RelaisOutbox(db, {
+    relais = new RelaisOutbox(db, outbox, {
       envoyer: async (messages) => {
         if (brokerEnPanne) throw new Error("Redpanda injoignable");
         envoyes.push(...messages);

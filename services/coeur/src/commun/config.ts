@@ -16,13 +16,18 @@ export interface Config {
   paiementJetonUrl: string;
   paiementClientId: string;
   paiementClientSecret: string;
+  /** Redis : cache des fiches d'événement (ADR 015). */
+  redisUrl: string;
+  /** Meilisearch : modèle de lecture du catalogue (ADR 014). */
+  meiliUrl: string;
+  meiliCle: string;
   /** Brokers Redpanda pour le relais de l'Outbox (ADR 006, 007). */
   kafkaBrokers: string[];
   /** Intervalle du relais de l'Outbox ; 0 le désactive. */
   relaisIntervalleMs: number;
   /** Intervalle de libération des blocages expirés ; 0 le désactive. */
   expirationIntervalleMs: number;
-  /** Charge une vente de démonstration (5 000 places) au démarrage, si elle n'existe pas. */
+  /** Charge les données de démonstration (catalogue, vente de 5 000 places) au démarrage. */
   donneesDemo: boolean;
 }
 
@@ -43,6 +48,9 @@ export function lireConfig(env: NodeJS.ProcessEnv = process.env): Config {
     paiementJetonUrl: env.PAIEMENT_JETON_URL ?? `${keycloak}/protocol/openid-connect/token`,
     paiementClientId: env.PAIEMENT_CLIENT_ID ?? "ticketrush-coeur",
     paiementClientSecret: env.PAIEMENT_CLIENT_SECRET ?? "ticketrush-coeur-secret-dev",
+    redisUrl: env.REDIS_URL ?? "redis://localhost:6379",
+    meiliUrl: env.MEILI_URL ?? "http://localhost:7700",
+    meiliCle: env.MEILI_CLE ?? "ticketrush_dev_meili_cle_maitre",
     kafkaBrokers: (env.KAFKA_BROKERS ?? "localhost:19092").split(","),
     relaisIntervalleMs: Number(env.RELAIS_INTERVALLE_MS ?? 200),
     expirationIntervalleMs: Number(env.EXPIRATION_INTERVALLE_MS ?? 5_000),
