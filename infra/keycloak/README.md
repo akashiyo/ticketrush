@@ -2,9 +2,9 @@
 
 Le fichier `realm-ticketrush.json` est importé par Keycloak **au premier démarrage** du Compose (`--import-realm`). S'il est modifié, il faut supprimer le domaine existant pour qu'il soit réimporté (par exemple `docker compose down -v`, qui efface aussi toutes les données).
 
-- Console d'administration : http://localhost:8180 (compte `admin` / `admin_dev`, valeurs de `.env.example`)
-- Émetteur des jetons (`iss`) : `http://localhost:8180/realms/ticketrush`, identique depuis la machine et depuis les autres conteneurs
-- Clés publiques (JWKS) depuis un conteneur : `http://keycloak:8080/realms/ticketrush/protocol/openid-connect/certs`
+- Console d'administration : http://localhost:8000/auth (via Traefik, ADR 013) (compte `admin` / `admin_dev`, valeurs de `.env.example`)
+- Émetteur des jetons (`iss`) : `http://localhost:8000/auth/realms/ticketrush`, identique depuis la machine et depuis les autres conteneurs
+- Clés publiques (JWKS) depuis un conteneur : `http://keycloak:8080/auth/realms/ticketrush/protocol/openid-connect/certs`
 
 ## Rôles
 

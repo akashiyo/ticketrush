@@ -17,6 +17,9 @@ coverage/
 npm-debug.log*
 pnpm-debug.log*
 
+# Consignes personnelles pour Claude Code (chacun la sienne : P1 ou P2)
+CLAUDE.local.md
+
 # Systèmes et éditeurs
 .DS_Store
 Thumbs.db

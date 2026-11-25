@@ -5,9 +5,9 @@
 # Arrêt + effacement des données : docker compose down -v
 #
 # Contenu actuel : les 4 stockages (PostgreSQL, Redis, Redpanda, Meilisearch),
-# Keycloak, le faux prestataire de paiement, la file d'attente et Traefik (point
-# d'entrée : http://localhost:8000). Le Cœur (P1), l'Analytique et l'observabilité
-# s'ajouteront ensuite.
+# Keycloak, le faux prestataire de paiement, la file d'attente, l'application web
+# (Nginx) et Traefik, point d'entrée unique : http://localhost:8000 (ADR 013).
+# Le Cœur (P1), l'Analytique et l'observabilité s'ajouteront ensuite.
 #
 # Couper le paiement (démo de panne en soutenance) : docker compose stop faux-paiement
 #
@@ -167,25 +167,34 @@ services:
       KC_DB_URL: jdbc:postgresql://postgres:5432/${KEYCLOAK_DB:-keycloak}
       KC_DB_USERNAME: ${KEYCLOAK_DB_USER:-keycloak}
       KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak_dev}
+      # Keycloak est servi par Traefik sous /auth (ADR 013) : une seule adresse pour le
+      # navigateur, http://localhost:8000.
+      KC_HTTP_RELATIVE_PATH: /auth
+      KC_PROXY_HEADERS: xforwarded
       # Émetteur fixe des jetons, quel que soit le chemin d'accès (navigateur ou autre
       # conteneur) : les services vérifient tous le même « iss ».
-      KC_HOSTNAME: http://localhost:${KEYCLOAK_PORT:-8180}
+      KC_HOSTNAME: http://localhost:${TRAEFIK_PORT:-8000}/auth
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
       KC_HEALTH_ENABLED: "true"
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin_dev}
-    ports:
-      # 8180 côté machine : le port 8080 est souvent déjà pris.
-      - "127.0.0.1:${KEYCLOAK_PORT:-8180}:8080"
+    # Aucun port publié : on passe par Traefik (http://localhost:8000/auth).
+    labels:
+      traefik.enable: "true"
+      traefik.http.services.keycloak.loadbalancer.server.port: "8080"
+      traefik.http.routers.keycloak.rule: PathPrefix(`/auth`)
+      traefik.http.routers.keycloak.entrypoints: web
+      traefik.http.routers.keycloak.service: keycloak
     volumes:
       - ./infra/keycloak:/opt/keycloak/data/import:ro
     healthcheck:
-      # L'image n'a pas curl : requête HTTP brute sur le port de gestion (9000).
+      # L'image n'a pas curl : requête HTTP brute sur le port de gestion (9000), qui
+      # reprend le préfixe /auth.
       test:
         - CMD-SHELL
         - >-
           exec 3<>/dev/tcp/127.0.0.1/9000 &&
-          printf 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 &&
+          printf 'GET /auth/health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 &&
           grep -q '"status": "UP"' <&3
       interval: 10s
       timeout: 5s
@@ -208,8 +217,8 @@ services:
     environment:
       PORT: "3000"
       # Jetons de service émis par Keycloak pour le Cœur (ADR 010).
-      AUTH_EMETTEUR: http://localhost:${KEYCLOAK_PORT:-8180}/realms/ticketrush
-      AUTH_JWKS_URL: http://keycloak:8080/realms/ticketrush/protocol/openid-connect/certs
+      AUTH_EMETTEUR: http://localhost:${TRAEFIK_PORT:-8000}/auth/realms/ticketrush
+      AUTH_JWKS_URL: http://keycloak:8080/auth/realms/ticketrush/protocol/openid-connect/certs
       AUTH_AUDIENCE: ticketrush-faux-paiement
     ports:
       - "127.0.0.1:${FAUX_PAIEMENT_PORT:-3003}:3000"
@@ -243,8 +252,8 @@ services:
       PORT: "3000"
       REDIS_URL: redis://redis:6379
       # Jetons des acheteurs et organisateurs, émis par Keycloak (ADR 010).
-      AUTH_EMETTEUR: http://localhost:${KEYCLOAK_PORT:-8180}/realms/ticketrush
-      AUTH_JWKS_URL: http://keycloak:8080/realms/ticketrush/protocol/openid-connect/certs
+      AUTH_EMETTEUR: http://localhost:${TRAEFIK_PORT:-8000}/auth/realms/ticketrush
+      AUTH_JWKS_URL: http://keycloak:8080/auth/realms/ticketrush/protocol/openid-connect/certs
       AUTH_AUDIENCE: ticketrush-api
       # Jetons d'admission (ADR 011). Sans clé fournie, une clé est générée au démarrage :
       # suffisant avec une seule instance (voir .env.example).

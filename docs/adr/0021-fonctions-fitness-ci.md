@@ -35,9 +35,23 @@ Une pull request ne peut pas être fusionnée si une étape échoue.
 
 | Fonction | Outil | Ce qui fait échouer la CI |
 |---|---|---|
-| **1. Règles de dépendances** | dependency-cruiser | Un module du Cœur importe l'intérieur d'un autre module au lieu de son dossier `api/` · le domaine importe NestJS, Drizzle ou un client réseau · un cycle de dépendances apparaît |
+| **1. Règles de dépendances** | dependency-cruiser | Une des 9 règles ci-dessous est enfreinte |
 | **2. Compatibilité des contrats** | oasdiff pour les API OpenAPI, plus une comparaison des schémas AsyncAPI des événements | Une modification casse un client existant : champ supprimé ou renommé, champ obligatoire ajouté, type changé. Comparaison faite avec la version de la branche principale |
 | **3. Seuil de performance** | Les seuils (`thresholds`) de k6 | Un test de charge réduit dépasse ses seuils : p99 de la réservation au-delà de 500 ms, taux d'erreur au-delà de 1 %, **ou au moins une survente détectée** |
+
+**Les règles de la fonction 1** (fichier `.dependency-cruiser.cjs`, commande `pnpm fitness:dependances`) :
+
+| Règle | Interdit | Décision protégée |
+|---|---|---|
+| `pas-de-cycle` | Un cycle de dépendances entre fichiers | Modules séparables (ADR 002) |
+| `domaine-sans-couches-externes` | Le domaine importe `application/` ou `infrastructure/` | Hexagonal (ADR 001, 020) |
+| `domaine-sans-technique` | Le domaine importe NestJS, Drizzle, Kysely, un client PostgreSQL, Redis, Kafka ou Meilisearch, Express, OpenTelemetry, ALTCHA, ou un module réseau de Node (`http`, `net`…) | Hexagonal (ADR 001, 020) |
+| `application-sans-infrastructure` | La couche application importe un adaptateur d'infrastructure au lieu d'un port du domaine (tests exceptés) | Hexagonal (ADR 001, 020) |
+| `coeur-modules-par-api` | Un module du Cœur (`catalogue`, `reservation`, `organisateurs`) importe l'intérieur d'un autre module au lieu de son dossier `api/` | Monolithe modulaire (ADR 001, 002) |
+| `services-isoles` | Une unité déployable importe le code d'une autre | Unités indépendantes, contrats seuls partagés (ADR 002, 005) |
+| `front-sans-code-serveur` | L'application web importe le code d'un service | Communication par HTTP (ADR 005) |
+| `contrats-autonomes` | `packages/contrats` importe une application ou un service | Contrats comme base commune (ADR 005) |
+| `pas-d-import-introuvable` | Un import qui ne se résout pas | Aucune dépendance cachée ou non déclarée |
 
 **À propos de la fonction 3 :** le test complet, 50 000 acheteurs pour 5 000 places, demande plus de ressources qu'une machine d'intégration continue. La CI lance donc une **version réduite** à chaque pull request, par exemple 2 000 acheteurs pour 200 places, avec les mêmes seuils et la même vérification de survente. Le test complet est lancé avant chaque jalon. Son rapport est versionné dans `docs/rapports/`.
 

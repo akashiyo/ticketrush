@@ -1,9 +1,11 @@
 # Intégration continue de TicketRush (sujet : « Gouvernance : intégration continue »,
 # rendu : « CI au vert »). Voir ADR 021.
 #
-# Version de base (jalon 1) : installation, formatage, lint, types, build, tests.
-# Les 3 fonctions de fitness (dépendances, compatibilité des contrats, seuil de
-# performance) s'ajouteront au jalon 3.
+# Étapes : installation, formatage, lint, types, fitness, build, tests.
+# Fonctions de fitness (sujet : « au moins 3 fonctions de fitness automatisées ») :
+#   1. règles de dépendances (dependency-cruiser)       : branchée
+#   2. compatibilité des contrats (oasdiff)             : à venir
+#   3. seuil de performance (k6, test de charge réduit) : à venir
 
 name: CI
 
@@ -51,6 +53,11 @@ jobs:
 
       - name: Vérifier les types
         run: pnpm typecheck
+
+      # Fitness 1 : frontières hexagonales, modules du Cœur par `api/`, services
+      # isolés, aucun cycle (ADR 001, 002, 005, 021). Règles : .dependency-cruiser.cjs
+      - name: "Fitness : règles de dépendances"
+        run: pnpm fitness:dependances
 
       - name: Build
         run: pnpm build

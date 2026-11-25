@@ -8,7 +8,7 @@ WORKDIR /depot
 COPY . .
 RUN pnpm install --frozen-lockfile --filter @ticketrush/web...
 # Valeurs fixées à la construction (Vite) ; modifiables avec « build.args » dans le Compose.
-ARG VITE_KEYCLOAK_URL=http://localhost:8180/realms/ticketrush
+ARG VITE_KEYCLOAK_URL=http://localhost:8000/auth/realms/ticketrush
 ARG VITE_KEYCLOAK_CLIENT_ID=ticketrush-web
 ARG VITE_API_FILE=/api/file
 ENV VITE_KEYCLOAK_URL=$VITE_KEYCLOAK_URL \

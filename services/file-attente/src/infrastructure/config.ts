@@ -30,9 +30,10 @@ export function lireConfig(env: NodeJS.ProcessEnv = process.env): Config {
   return {
     port: Number(env.PORT ?? 3000),
     redisUrl: env.REDIS_URL ?? "redis://localhost:6379",
-    authEmetteur: env.AUTH_EMETTEUR ?? "http://localhost:8180/realms/ticketrush",
+    authEmetteur: env.AUTH_EMETTEUR ?? "http://localhost:8000/auth/realms/ticketrush",
     authJwksUrl:
-      env.AUTH_JWKS_URL ?? "http://localhost:8180/realms/ticketrush/protocol/openid-connect/certs",
+      env.AUTH_JWKS_URL ??
+      "http://localhost:8000/auth/realms/ticketrush/protocol/openid-connect/certs",
     authAudience: env.AUTH_AUDIENCE ?? "ticketrush-api",
     jetonEmetteur: env.JETON_EMETTEUR ?? "ticketrush-file-attente",
     jetonDureeSec: Number(env.JETON_DUREE_SEC ?? 600),

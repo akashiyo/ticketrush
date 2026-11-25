@@ -13,7 +13,7 @@ Avant d'écrire du code, une config ou un document, vérifier et dire en une lig
 1. **Exigence du sujet** : à quelle consigne précise du §1 cela répond-il (partie commune, module retenu, rendu, jalon, bonus) ?
    Si aucune → **ne pas le faire**, le signaler comme hors sujet. Les bonus restent permis, mais seulement en option.
 2. **Scénario de qualité** : quel scénario de `docs/arc42/10-exigences-qualite.md` cela sert-il (ex. C-1, P-2, D-1) ?
-   Le sujet l'impose : *chaque choix doit être justifié par un scénario de qualité*.
+   Le sujet l'impose : _chaque choix doit être justifié par un scénario de qualité_.
 3. **ADR** : la décision est-elle couverte par un ADR de `docs/adr/` (index `docs/adr/liste-adr.md`) ?
    Nouvelle techno, nouveau pattern ou changement de décision → **ADR d'abord**, code ensuite.
 4. **Stack** : uniquement les technos du §3. Aucune autre sans ADR.
@@ -28,10 +28,12 @@ Après la modification : lint, typecheck, tests et fitness doivent passer ; mett
 ## 1. Le sujet (recopié intégralement)
 
 ### Principe
+
 TicketRush est une plateforme de billetterie pour concerts et événements sportifs. Lors des mises en vente les plus attendues, plusieurs centaines de milliers de personnes se connectent au même instant pour quelques milliers de places. Il faut concevoir, documenter, justifier et réaliser l'architecture : elle doit **absorber le pic**, rester **équitable** entre les acheteurs, **résister aux pannes** et **ne jamais vendre deux fois la même place**.
 Le projet est évalué autant sur la qualité des décisions et de leur justification que sur l'implémentation.
 
 ### Partie commune (obligatoire)
+
 - **Exigences de qualité** : parties prenantes, arbre d'utilité et **au moins 8 scénarios de qualité mesurables**, dont ceux de la mise en vente (charge, cohérence, disponibilité, sécurité).
 - **Domaine** : Event Storming du parcours d'achat, sous-domaines classés (cœur, support, générique), contextes délimités et carte de contexte.
 - **Dossier d'architecture au format arc42** : diagrammes C4 de contexte, de conteneurs et de composants (pour au moins un conteneur) **écrits sous forme de code**, vue de déploiement, scénarios d'exécution clés.
@@ -42,45 +44,54 @@ Le projet est évalué autant sur la qualité des décisions et de leur justific
 - **Gouvernance** : intégration continue, **au moins 3 fonctions de fitness automatisées** (règles de dépendances, compatibilité des contrats, seuil de performance), registre de la dette technique.
 
 ### Les modules
+
 **Niveau 1**
+
 - **Catalogue et recherche** : événements, salles et plans de salle, recherche par date, lieu et artiste ; modèle de lecture séparé (CQRS) et stratégie de cache justifiée.
 - **Organisateurs multi-tenants** : chaque organisateur gère ses événements, ses tarifs et ses ventes ; isolation stricte des données entre organisateurs, rôles et journal d'audit.
 
 **Niveau 2**
+
 - **File d'attente virtuelle** : entrée contrôlée dans la vente, position et temps d'attente affichés, jetons d'accès signés et limités dans le temps, protection contre les robots et les accès en double.
 - **Réservation et paiement** : blocage temporaire des places avec expiration, saga de paiement avec compensations, pattern Outbox, idempotence de bout en bout, prestataire de paiement simulé et instable.
 
 **Niveau 3**
+
 - **Revente et billets infalsifiables** : historique complet de chaque billet par event sourcing, revente encadrée entre particuliers (prix plafonné), QR code signé, contrôle d'accès capable de fonctionner hors ligne à l'entrée de la salle.
 - **Analytique temps réel et fiabilité** : traitement de flux des événements de vente, tableau de bord temps réel pour les organisateurs, budgets d'erreur, alertes sur les SLO et post-mortem d'un incident simulé.
 
 ### Exigence minimale
+
 - Trinôme : partie commune + 4 modules, dont au moins 1 de niveau 3.
 - Quadrinôme : partie commune + 5 modules, dont les deux de niveau 3.
 - **Rendu** : le dépôt Git (code, ADR, diagrammes en code, **CI au vert**), le dossier arc42, les rapports des tests de charge et de résilience, et une vidéo de la mise en vente sous charge.
 
 ### Jalons
+
 1. **Jalon 1** : exigences de qualité, Event Storming, carte de contexte, diagramme de contexte et premiers ADR.
 2. **Jalon 2** : diagramme de conteneurs, ADR structurants, squelette fonctionnel déployé et observable.
 3. **Jalon 3** : premier test de charge et revue d'architecture intermédiaire (ATAM allégée) avec l'enseignant.
 4. **Rendu final** : modules, preuves de qualité, dossier complet, puis soutenance.
 
 ### Bonus (points supplémentaires, optionnels)
+
 - Déploiement sur Kubernetes réparti sur plusieurs zones, avec mise à l'échelle automatique.
 - Chaos engineering automatisé pendant le test de charge (arrêt de services, latence réseau injectée).
 - Tests de contrat entre services (Pact) et registre de schémas pour les événements.
 - Architecture multi-région active-passive avec objectifs de reprise (RTO et RPO) démontrés.
 
 ### Barème (/20)
-| Critère | Points |
-|---|---|
-| Dossier d'architecture (qualités, domaine, C4, ADR, compromis) | 5 |
-| Implémentation (squelette et modules) | 6 |
-| Qualités démontrées (charge, cohérence, résilience, sécurité) | 3 |
-| Gouvernance et évolution (fitness, CI, dette) | 3 |
-| Soutenance | 3 |
+
+| Critère                                                        | Points |
+| -------------------------------------------------------------- | ------ |
+| Dossier d'architecture (qualités, domaine, C4, ADR, compromis) | 5      |
+| Implémentation (squelette et modules)                          | 6      |
+| Qualités démontrées (charge, cohérence, résilience, sécurité)  | 3      |
+| Gouvernance et évolution (fitness, CI, dette)                  | 3      |
+| Soutenance                                                     | 3      |
 
 ### Soutenance
+
 Devant un comité d'architecture : défense des scénarios et des ADR, puis **démonstration d'une mise en vente sous charge pendant laquelle le comité injecte une panne** (service arrêté, prestataire de paiement indisponible). Le comité soumet ensuite une exigence nouvelle : **20 minutes pour rédiger l'ADR** et présenter son impact.
 **Chaque membre doit pouvoir défendre l'ensemble des décisions et expliquer tout le code rendu.** Tous les langages, frameworks et services sont autorisés, **à condition que chaque choix soit justifié par un scénario de qualité**.
 
@@ -95,10 +106,29 @@ Devant un comité d'architecture : défense des scénarios et des ADR, puis **d�
   - Analytique temps réel et fiabilité (N3)
 - **Réservation et paiement (N2) n'est PAS un module retenu** : la réservation et le paiement simulé existent seulement au niveau du squelette (pas de saga de paiement avec compensations exigée). Une Outbox simple (relais par polling) sert à publier les événements de vente vers l'Analytique et la projection catalogue (ADR 007).
 - Revente et billets infalsifiables (N3) : non retenu.
-- Rôles :
-  - **P1** — domaine, cœur transactionnel, preuve de cohérence : `services/coeur/` (Catalogue, Réservation, Organisateurs), pages catalogue / réservation / back-office organisateurs, test de charge k6.
-  - **P2** — entrée, infra, exploitation, gouvernance : `services/file-attente/`, Analytique, `services/faux-paiement/`, `infra/`, CI et fitness, structure du monorepo, pages salle d'attente / connexion / dashboard temps réel.
+- Rôles (source : `TicketRush_Repartition_Binome_ADR.pdf`, 25/11/2026) :
+  - **P1 — le Cœur : domaine, cohérence, documentation** (porte le « zéro survente »).
+    - Possède : le service Cœur (Catalogue, Réservation, Organisateurs), les écritures PostgreSQL et l'Outbox, la projection Meilisearch et le cache, les pages web catalogue / recherche / réservation / dashboard de gestion des organisateurs.
+    - Partie commune : exigences de qualité, arbre d'utilité, scénarios ; carte de contexte, dossier arc42, diagrammes C4 ; rapport de charge « zéro survente » (partie réservation du script k6 et requêtes SQL de contrôle).
+    - Modules : Catalogue (N1), Organisateurs (N1). ADR : 001, 002, 003, 004, 005, 007, 014, 015, 016, 020.
+  - **P2 — autour du Cœur : entrée, plateforme, exploitation** (porte le pic et la panne).
+    - Possède : les services File d'attente, Analytique et faux prestataire de paiement ; l'infrastructure (Docker Compose, Traefik, Keycloak, Redpanda, observabilité) ; la structure du monorepo et la CI ; les pages web salle d'attente / connexion / dashboard en direct des organisateurs.
+    - Partie commune : vue de déploiement, OpenTelemetry, tableau de bord de la vente, SLO ; CI, 3 fonctions de fitness, registre de dette ; partie file d'attente du script k6.
+    - Modules : File d'attente (N2), Analytique (N3). ADR : 006, 008, 009, 010, 011, 012, 013, 017, 018, 019, 021, 022.
+- Propriété des dossiers :
+
+  | Dossier                                                                     | Propriétaire | Remarque                                                |
+  | --------------------------------------------------------------------------- | ------------ | ------------------------------------------------------- |
+  | `services/coeur/`                                                           | P1           | Catalogue, Réservation, Organisateurs                   |
+  | `services/file-attente/`, `services/analytique/`, `services/faux-paiement/` | P2           | Trois services indépendants                             |
+  | `infra/`, `docker-compose.yml`, `.github/`                                  | P2           | Compose, Traefik, Keycloak, observabilité, CI           |
+  | `apps/web/`                                                                 | Partagé      | Structure posée par P2, puis chacun ses pages           |
+  | `packages/contrats/`                                                        | Partagé      | Toute modification relue par l'autre                    |
+  | `tests/charge/`                                                             | Partagé      | P2 : entrée dans la file ; P1 : réservation et survente |
+  | `docs/`                                                                     | Partagé      | Chacun ses ADR ; arc42 tenu par P1                      |
+
 - Les deux pistes ne communiquent que par les **contrats de `packages/contrats`** (jeton d'admission, événements AsyncAPI, stock restant, API du faux paiement, jetons Keycloak). En attendant l'autre piste, utiliser un substitut conforme au contrat.
+- **Qui travaille dans cette session ?** Voir `CLAUDE.local.md` (personnel, non versionné). Ne jamais modifier les fichiers de l'autre piste sans le signaler ; les fichiers partagés se modifient en le disant explicitement.
 
 ---
 
