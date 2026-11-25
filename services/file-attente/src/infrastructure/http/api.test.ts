@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { AppModule } from "../../app.module.js";
 import { FileAttente } from "../../application/file-attente.js";
 import { demarrerRedis } from "../../test/redis-de-test.js";
+import { resoudreDefi } from "../../test/resoudre-defi.js";
 import { AUDIENCE_RESERVATION } from "../signataire-jose.js";
 import { creerVerificateur, VERIFICATEUR_JETON } from "./authentification.js";
 
@@ -23,6 +24,7 @@ beforeAll(async () => {
   arreterRedis = redis.arreter;
   process.env.REDIS_URL = redis.url;
   process.env.ADMISSION_INTERVALLE_MS = "0"; // le test déclenche lui-même les admissions
+  process.env.ALTCHA_DIFFICULTE = "500"; // petite difficulté : les tests restent rapides
 
   // Une paire de clés de test remplace Keycloak : les jetons sont vraiment signés et vérifiés.
   const { publicKey, privateKey } = await generateKeyPair("RS256");
@@ -56,6 +58,20 @@ afterAll(async () => {
 });
 
 const http = () => request(app.getHttpServer());
+
+/** Demande un défi ALTCHA et le résout, comme le navigateur avant d entrer. */
+const preuve = async (jeton: string) => {
+  const { body } = await http()
+    .get("/files/concert-api/defi")
+    .auth(jeton, { type: "bearer" })
+    .expect(200);
+  return resoudreDefi(body);
+};
+const entrer = async (evenementId: string, jeton: string) =>
+  http()
+    .post(`/files/${evenementId}/entrer`)
+    .auth(jeton, { type: "bearer" })
+    .send({ altcha: await preuve(jeton) });
 const configurer = async (evenementId: string, ouvertureLe: Date, debitParSeconde = 10) =>
   http()
     .put(`/files/${evenementId}/vente`)
@@ -100,10 +116,37 @@ describe("File d'attente — API", () => {
   });
 
   it("répond 404 pour une vente non configurée", async () => {
+    await entrer("concert-inconnu", await jetonKeycloak("alice", ["acheteur"])).then((r) =>
+      expect(r.status).toBe(404),
+    );
+  });
+
+  it("exige une preuve de travail ALTCHA pour entrer dans la file", async () => {
+    await configurer("concert-robots", new Date(Date.now() - 60_000));
+    const robot = await jetonKeycloak("robot", ["acheteur"]);
     await http()
-      .post("/files/concert-inconnu/entrer")
-      .auth(await jetonKeycloak("alice", ["acheteur"]), { type: "bearer" })
-      .expect(404);
+      .post("/files/concert-robots/entrer")
+      .auth(robot, { type: "bearer" })
+      .send({})
+      .expect(400);
+    await http()
+      .post("/files/concert-robots/entrer")
+      .auth(robot, { type: "bearer" })
+      .send({ altcha: "fausse-preuve" })
+      .expect(403);
+  });
+
+  it("refuse de réutiliser la même preuve de travail", async () => {
+    await configurer("concert-robots", new Date(Date.now() - 60_000));
+    const robot = await jetonKeycloak("robot-2", ["acheteur"]);
+    const unePreuve = await preuve(robot);
+    const envoyer = () =>
+      http()
+        .post("/files/concert-robots/entrer")
+        .auth(robot, { type: "bearer" })
+        .send({ altcha: unePreuve });
+    await envoyer().expect(200);
+    await envoyer().expect(403);
   });
 
   it("parcours complet : entrée, position, admission, jeton vérifiable", async () => {
@@ -113,26 +156,20 @@ describe("File d'attente — API", () => {
     const alice = await jetonKeycloak("alice", ["acheteur"]);
     const bruno = await jetonKeycloak("bruno", ["acheteur"]);
 
-    const entreeAlice = await http()
-      .post("/files/concert-api/entrer")
-      .auth(alice, { type: "bearer" })
-      .expect(200);
+    const entreeAlice = await entrer("concert-api", alice);
+    expect(entreeAlice.status).toBe(200);
     expect(entreeAlice.body).toMatchObject({
       statut: "en_attente",
       position: 1,
       attenteEstimeeSec: 1,
     });
-    const entreeBruno = await http()
-      .post("/files/concert-api/entrer")
-      .auth(bruno, { type: "bearer" })
-      .expect(200);
+    const entreeBruno = await entrer("concert-api", bruno);
+    expect(entreeBruno.status).toBe(200);
     expect(entreeBruno.body.position).toBe(2);
 
     // Accès en double : Alice entre de nouveau, elle garde sa place.
-    const doublon = await http()
-      .post("/files/concert-api/entrer")
-      .auth(alice, { type: "bearer" })
-      .expect(200);
+    const doublon = await entrer("concert-api", alice);
+    expect(doublon.status).toBe(200);
     expect(doublon.body.position).toBe(1);
 
     await app.get(FileAttente).admettreUnTour();

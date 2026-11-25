@@ -18,6 +18,7 @@ import {
 } from "./infrastructure/http/authentification.js";
 import { FilesController } from "./infrastructure/http/files.controller.js";
 import { PublicsController } from "./infrastructure/http/publics.controller.js";
+import { ProtectionRobots } from "./infrastructure/protection-robots.js";
 import { SignataireJose } from "./infrastructure/signataire-jose.js";
 
 export const REDIS = Symbol("Redis");
@@ -37,6 +38,19 @@ export const REDIS = Symbol("Redis");
       provide: DEPOT_FILE,
       useFactory: (redis: Redis) => new DepotFileRedis(redis),
       inject: [REDIS],
+    },
+    {
+      provide: ProtectionRobots,
+      useFactory: (redis: Redis, horloge: Horloge, config: Config) =>
+        ProtectionRobots.creer({
+          redis,
+          horloge,
+          secret: config.altchaSecret,
+          actif: config.altchaActif,
+          difficulte: config.altchaDifficulte,
+          dureeSec: config.altchaDureeSec,
+        }),
+      inject: [REDIS, HORLOGE, CONFIG],
     },
     {
       provide: SignataireJose,

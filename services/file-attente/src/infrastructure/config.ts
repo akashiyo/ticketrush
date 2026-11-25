@@ -14,6 +14,14 @@ export interface Config {
   jetonClePriveePem: string | undefined;
   /** Intervalle entre deux tours d'admission ; 0 désactive le worker. */
   admissionIntervalleMs: number;
+  /** Preuve de travail ALTCHA exigée à l'entrée de la file (ADR 012). */
+  altchaActif: boolean;
+  /** Secret HMAC qui signe les défis ALTCHA. Absent : secret généré au démarrage. */
+  altchaSecret: string | undefined;
+  /** Difficulté : compteur maximal que le navigateur doit essayer (plus grand = plus long). */
+  altchaDifficulte: number;
+  /** Durée de validité d'un défi, en secondes. */
+  altchaDureeSec: number;
 }
 
 export const CONFIG = Symbol("Config");
@@ -30,5 +38,10 @@ export function lireConfig(env: NodeJS.ProcessEnv = process.env): Config {
     jetonDureeSec: Number(env.JETON_DUREE_SEC ?? 600),
     jetonClePriveePem: env.JETON_CLE_PRIVEE_PEM?.replace(/\\n/g, "\n") || undefined,
     admissionIntervalleMs: Number(env.ADMISSION_INTERVALLE_MS ?? 1000),
+    // Désactivable uniquement par une valeur explicite (mode de test de charge, ADR 012).
+    altchaActif: env.ALTCHA_ACTIF !== "false",
+    altchaSecret: env.ALTCHA_SECRET || undefined,
+    altchaDifficulte: Number(env.ALTCHA_DIFFICULTE ?? 100_000),
+    altchaDureeSec: Number(env.ALTCHA_DUREE_SEC ?? 300),
   };
 }

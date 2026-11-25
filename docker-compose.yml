@@ -5,8 +5,9 @@
 # Arrêt + effacement des données : docker compose down -v
 #
 # Contenu actuel : les 4 stockages (PostgreSQL, Redis, Redpanda, Meilisearch),
-# Keycloak, le faux prestataire de paiement et la file d'attente. Le Cœur (P1),
-# l'Analytique, Traefik et l'observabilité s'ajouteront au jalon 2.
+# Keycloak, le faux prestataire de paiement, la file d'attente et Traefik (point
+# d'entrée : http://localhost:8000). Le Cœur (P1), l'Analytique et l'observabilité
+# s'ajouteront ensuite.
 #
 # Couper le paiement (démo de panne en soutenance) : docker compose stop faux-paiement
 #
@@ -250,8 +251,33 @@ services:
       JETON_CLE_PRIVEE_PEM: ${FILE_JETON_CLE_PRIVEE_PEM:-}
       JETON_DUREE_SEC: "600"
       ADMISSION_INTERVALLE_MS: "1000"
+      # Protection anti-robots ALTCHA (ADR 012). ALTCHA_ACTIF=false uniquement pour le test de charge.
+      ALTCHA_ACTIF: ${ALTCHA_ACTIF:-true}
+      ALTCHA_SECRET: ${ALTCHA_SECRET:-}
+      ALTCHA_DIFFICULTE: ${ALTCHA_DIFFICULTE:-100000}
     ports:
+      # Accès direct pour le développement ; les acheteurs passent par Traefik (/api/file).
       - "127.0.0.1:${FILE_ATTENTE_PORT:-3001}:3000"
+    labels:
+      # Routage et limitation de débit par Traefik (ADR 012 et 013).
+      traefik.enable: "true"
+      traefik.http.services.file.loadbalancer.server.port: "3000"
+      traefik.http.middlewares.file-prefixe.stripprefix.prefixes: /api/file
+      # Suivi de la position et clé publique : limite large par adresse IP.
+      traefik.http.routers.file.rule: PathPrefix(`/api/file`)
+      traefik.http.routers.file.entrypoints: web
+      traefik.http.routers.file.service: file
+      traefik.http.routers.file.middlewares: file-debit,file-prefixe
+      traefik.http.middlewares.file-debit.ratelimit.average: "20"
+      traefik.http.middlewares.file-debit.ratelimit.burst: "40"
+      # Entrée dans la file et demande de défi : limite stricte par adresse IP.
+      traefik.http.routers.file-entree.rule: PathRegexp(`^/api/file/files/[^/]+/(entrer|defi)$$`)
+      traefik.http.routers.file-entree.priority: "100"
+      traefik.http.routers.file-entree.entrypoints: web
+      traefik.http.routers.file-entree.service: file
+      traefik.http.routers.file-entree.middlewares: file-debit-entree,file-prefixe
+      traefik.http.middlewares.file-debit-entree.ratelimit.average: "2"
+      traefik.http.middlewares.file-debit-entree.ratelimit.burst: "5"
     healthcheck:
       test:
         - CMD
@@ -267,6 +293,33 @@ services:
         limits:
           cpus: "1"
           memory: 384m
+
+  # Point d'entrée unique : routage, limitation de débit par adresse IP (ADR 012 et 013).
+  # Les routes sont déclarées par les étiquettes « traefik.* » de chaque service.
+  traefik:
+    image: traefik:v3.6
+    restart: unless-stopped
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --ping=true
+      - --log.level=INFO
+    ports:
+      # 8000 côté machine : le port 80 est souvent déjà pris.
+      - "127.0.0.1:${TRAEFIK_PORT:-8000}:80"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 256m
 
 volumes:
   postgres-data:
