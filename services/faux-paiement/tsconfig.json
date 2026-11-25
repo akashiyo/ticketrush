@@ -1,10 +1,14 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": "src",
     "noEmit": true,
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "emitDecoratorMetadata": true,
+    // La vérification des types (étape « typecheck » de la CI) passe avant le build :
+    // le paquet d'observabilité est lu depuis ses sources, sans attendre son dist/.
+    "paths": {
+      "@ticketrush/observabilite": ["../../packages/observabilite/src/index.ts"]
+    }
   },
   "include": ["src"]
 }
