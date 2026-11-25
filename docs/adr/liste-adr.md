@@ -68,9 +68,9 @@ Les 22 ADR sont rédigés. Statut « Accepté » pour les décisions déjà vali
 | Id | Qualité | Scénario (source → stimulus → environnement → réponse → mesure) |
 |---|---|---|
 | C-1 | Cohérence | 50 000 acheteurs virtuels tentent d'acheter 5 000 places à l'ouverture → **0 place vendue deux fois, 0 billet au-delà du stock**, vérifié par requête SQL après le test |
-| P-1 | Performance (entrée) | 200 000 connexions dans la première minute → chaque visiteur reçoit sa position en **< 2 s au p99**, 0 erreur 5xx |
+| P-1 | Performance (entrée) | 50 000 acheteurs virtuels pour 5 000 places à l'ouverture → chaque acheteur reçoit sa position en **< 2 s au p99**, 0 erreur 5xx |
 | P-2 | Performance (réservation) | Un acheteur admis réserve pendant le pic → blocage confirmé en **< 500 ms au p99** |
-| P-3 | Performance (recherche) | 200 000 recherches par minute pendant la vente → recherche **< 300 ms au p99**, p99 de la réservation dégradé de **moins de 10 %** |
+| P-3 | Performance (recherche) | Recherches pendant le test de charge (50 000 acheteurs virtuels) → recherche **< 300 ms au p99**, p99 de la réservation dégradé de **moins de 10 %** |
 | E-1 | Équité | À l'ouverture → **100 %** des admissions respectent l'ordre de la file ; 0 compte avec deux positions |
 | D-1 | Disponibilité (paiement) | Le prestataire de paiement tombe en pleine vente → la file continue, les places bloquées sont libérées à expiration (≤ 10 min), aucun billet émis sans paiement accepté |
 | D-2 | Disponibilité (service arrêté) | Le comité arrête l'Analytique pendant la vente → 0 erreur côté achat ; au redémarrage, l'analytique rattrape les événements en **< 5 min** |

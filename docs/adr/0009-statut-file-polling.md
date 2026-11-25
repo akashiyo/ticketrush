@@ -27,7 +27,7 @@ GET /files/{evenementId}/position
 
 - **Le serveur fixe le délai avant le prochain appel** selon la position : loin dans la file, toutes les 20 à 30 s ; près de l'admission, toutes les 2 à 5 s. La charge reste maîtrisée, et l'acheteur proche de son tour est prévenu rapidement.
 - Côté navigateur, c'est TanStack Query qui gère ces interrogations, avec l'intervalle renvoyé par le serveur.
-- **Estimation de charge**, à vérifier au test : 200 000 acheteurs qui interrogent en moyenne toutes les 15 s, cela fait environ 13 000 requêtes par seconde. Chacune coûte un `ZRANK` dans Redis, ce que Redis traite largement, et quelques instances de la File d'attente suffisent.
+- **Estimation de charge**, à vérifier au test : les 50 000 acheteurs virtuels du test de charge, qui interrogent en moyenne toutes les 15 s, font environ 3 300 requêtes par seconde. Chacune coûte un `ZRANK` dans Redis, ce que Redis traite largement, et quelques instances de la File d'attente suffisent.
 
 **Le SSE est réservé au dashboard en direct des organisateurs** (module Analytique). Il y a peu de clients, chacun reçoit un flux continu de données, et la connexion ouverte y est justifiée.
 

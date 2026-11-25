@@ -12,7 +12,7 @@ Le sujet exige :
 - une protection contre les **accès en double**.
 
 Scénarios concernés :
-- **P-1** : 200 000 connexions dans la première minute, chacune reçoit sa position en moins de 2 s au p99.
+- **P-1** : 50 000 acheteurs virtuels pour 5 000 places à l'ouverture, chacun reçoit sa position en moins de 2 s au p99.
 - **E-1** : les admissions respectent l'ordre de la file à 100 %, et aucun compte n'a deux positions.
 - **C-1 et P-2** : la réservation ne doit jamais recevoir plus de demandes qu'elle n'en traite.
 

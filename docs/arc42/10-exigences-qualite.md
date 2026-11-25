@@ -63,12 +63,12 @@ contrôle continu pendant la vente (invariant, ADR 018). Décisions : ADR 003, 0
 | Source        | Acheteurs connectés                                                                |
 | Stimulus      | Demandent leur entrée dans la file dans la première minute de l'ouverture          |
 | Artefact      | Point d'entrée (Traefik) et service File d'attente                                 |
-| Environnement | Ouverture de la vente : 200 000 connexions dans la première minute                 |
+| Environnement | Ouverture d'une vente de 5 000 places : 50 000 acheteurs virtuels (test de charge du sujet) |
 | Réponse       | Chaque acheteur reçoit sa position et un temps d'attente estimé                    |
 | Mesure        | Réponse en **< 2 s au p99**, **0** erreur 5xx                                      |
 
-Vérifié par : seuils k6 ; SLO « Entrée dans la file » (ADR 018). Décisions : ADR 001, 008, 009, 013.
-Voir la question ouverte Q1 sur le volume vérifiable.
+Vérifié par : seuils k6 du test de charge (50 000 acheteurs virtuels, 5 000 places) ; SLO « Entrée
+dans la file » (ADR 018). Décisions : ADR 001, 008, 009, 013.
 
 ### P-2 — Performance : réservation au pic
 
@@ -90,7 +90,7 @@ Vérifié par : seuils k6 ; SLO « Réservation » (ADR 018). Décisions : ADR 0
 | Source        | Visiteurs du catalogue                                                                      |
 | Stimulus      | Recherchent par date, lieu ou artiste                                                       |
 | Artefact      | Catalogue : modèle de lecture (Meilisearch) et cache                                        |
-| Environnement | Pendant une vente au pic : 200 000 recherches par minute                                   |
+| Environnement | Pendant le test de charge du sujet (50 000 acheteurs virtuels), une partie cherche dans le catalogue en même temps |
 | Réponse       | Résultats renvoyés sans solliciter la base qui protège le stock                             |
 | Mesure        | Recherche en **< 300 ms au p99** ; p99 de la réservation dégradé de **moins de 10 %**        |
 
@@ -280,10 +280,9 @@ Vérifié par : une pull request de test avec un import interdit volontaire. Dé
 
 ## 10.3 Questions ouvertes
 
-- **Q1 — Volumes vérifiables.** P-1 (200 000 connexions par minute) et P-3 (200 000 recherches par
-  minute) dépassent le test de charge exigé (50 000 acheteurs) et probablement nos machines. Soit
-  on garde 200 000 comme cible de production et on démontre 50 000, soit on ramène l'environnement
-  du scénario au volume du test. À trancher avec P2 (P-1 est sur sa piste).
+- ~~**Q1 — Volumes vérifiables.**~~ **Résolue** : P-1 et P-3 reprennent le volume exigé par le
+  sujet, **au moins 50 000 acheteurs virtuels sur 5 000 places**, au lieu de 200 000. Chaque
+  scénario est ainsi démontrable par le test de charge, comme le demande le sujet.
 - ~~**Q2 — Objectif de P-1.**~~ **Résolue** : le SLO « Entrée dans la file » de l'ADR 018 est
   ramené à **99 %** sous 2 s, l'objectif du scénario. Règle ajoutée dans l'ADR 018 : chaque SLO
   reprend exactement l'objectif de son scénario.

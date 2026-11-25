@@ -12,7 +12,7 @@ Deux usages très différents se croisent sur les mêmes données :
 
 Le risque : si ces recherches passent par PostgreSQL, elles **concurrencent la base qui protège le stock** (ADR 003) au pire moment.
 
-Scénario **P-3** : 200 000 recherches par minute pendant la vente → recherche en moins de 300 ms au p99, et p99 de la réservation dégradé de moins de 10 %.
+Scénario **P-3** : recherches pendant le test de charge (50 000 acheteurs virtuels) → recherche en moins de 300 ms au p99, et p99 de la réservation dégradé de moins de 10 %.
 
 Les acheteurs attendent aussi la tolérance aux fautes de frappe (« Beyonse »), l'autocomplétion et des filtres (ville, date, genre, prix).
 
