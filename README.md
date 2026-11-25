@@ -18,6 +18,9 @@ Billetterie pour concerts et événements sportifs, capable d'absorber le pic d'
 | `pnpm lint`         | Lance ESLint sur tout le dépôt                |
 | `pnpm format`       | Formate le code avec Prettier                 |
 | `pnpm format:check` | Vérifie le formatage sans modifier de fichier |
+| `pnpm test`         | Lance les tests Vitest de tous les paquets    |
+
+La CI GitHub Actions (`.github/workflows/ci.yml`) rejoue ces vérifications à chaque push et chaque pull request.
 
 ## Infrastructure locale (Docker Compose)
 
