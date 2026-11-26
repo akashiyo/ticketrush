@@ -32,6 +32,14 @@ export async function demarrerPostgres(): Promise<{
     connectionString: `postgres://test:test@${conteneur.getHost()}:${conteneur.getMappedPort(5432)}/test`,
     max: 20,
   });
+  // À l'arrêt du conteneur, PostgreSQL coupe les connexions encore ouvertes (code 57P01,
+  // « terminating connection due to administrator command »). Le pool remonte cette coupure
+  // par un événement « error » : sans gestionnaire, Node en fait une exception non interceptée
+  // et Vitest échoue alors que tous les tests passent (dette D-028). Seule cette coupure
+  // attendue est ignorée ; toute autre erreur reste fatale.
+  pool.on("error", (erreur: Error & { code?: string }) => {
+    if (erreur.code !== "57P01") throw erreur;
+  });
   return {
     pool,
     db: drizzle(pool),
