@@ -9,8 +9,10 @@ import { NestInstrumentation } from "@opentelemetry/instrumentation-nestjs-core"
 import { PgInstrumentation } from "@opentelemetry/instrumentation-pg";
 import { PinoInstrumentation } from "@opentelemetry/instrumentation-pino";
 import { BatchLogRecordProcessor } from "@opentelemetry/sdk-logs";
-import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
+import { AggregationType, PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
 import { NodeSDK } from "@opentelemetry/sdk-node";
+
+import { BORNES_DUREE_HTTP_SECONDES } from "./seuils.js";
 
 /** Chemins techniques sans intérêt dans les traces : contrôles de santé du Compose. */
 const CHEMINS_IGNORES = new Set(["/sante", "/health", "/metrics"]);
@@ -30,6 +32,16 @@ export function demarrerTelemetrie(): NodeSDK | undefined {
         exporter: new OTLPMetricExporter(),
         exportIntervalMillis: Number(process.env.OTEL_METRIC_EXPORT_INTERVAL ?? 10_000),
       }),
+    ],
+    // Seaux de durée HTTP alignés sur les seuils des SLO : 0,3 s, 0,5 s et 2 s (ADR 018).
+    views: [
+      {
+        instrumentName: "http.server.request.duration",
+        aggregation: {
+          type: AggregationType.EXPLICIT_BUCKET_HISTOGRAM,
+          options: { boundaries: [...BORNES_DUREE_HTTP_SECONDES] },
+        },
+      },
     ],
     logRecordProcessors: [new BatchLogRecordProcessor({ exporter: new OTLPLogExporter() })],
     instrumentations: [

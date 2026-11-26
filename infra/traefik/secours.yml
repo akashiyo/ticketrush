@@ -1,0 +1,54 @@
+# Routes de secours de Traefik (ADR 013, 018 ; scénarios D-1, D-2, D-3, D-5).
+#
+# Quand un conteneur s'arrête, Traefik retire ses routes (étiquettes Docker). Sans ces
+# routes de secours, ses requêtes tomberaient sur une route plus générale : /api/file/…
+# sur le Cœur (404), /api/… ou /auth/… sur l'application web (page HTML, 200).
+# L'acheteur recevrait une réponse trompeuse, et ni les SLO ni les alertes ne verraient
+# la panne.
+#
+# Chaque route ci-dessous double une route Docker, avec une priorité juste inférieure :
+# elle ne sert que lorsque la route Docker a disparu, et répond 503 (aucun serveur).
+# Les noms se terminent par « -secours » : les SLO comptent ces 503 comme des échecs.
+http:
+  routers:
+    file-entree-secours:
+      rule: "PathRegexp(`^/api/file/files/[^/]+/(entrer|defi)$`)"
+      priority: 99
+      entryPoints: [web]
+      service: indisponible
+    file-secours:
+      rule: "PathPrefix(`/api/file`)"
+      priority: 49
+      entryPoints: [web]
+      service: indisponible
+    coeur-reservation-secours:
+      rule: "Method(`POST`) && PathRegexp(`^/api/evenements/[^/]+/blocages$`)"
+      priority: 59
+      entryPoints: [web]
+      service: indisponible
+    coeur-paiement-secours:
+      rule: "Method(`POST`) && PathRegexp(`^/api/reservations/[^/]+/paiement$`)"
+      priority: 59
+      entryPoints: [web]
+      service: indisponible
+    coeur-recherche-secours:
+      rule: "Method(`GET`) && Path(`/api/catalogue/recherche`)"
+      priority: 59
+      entryPoints: [web]
+      service: indisponible
+    coeur-secours:
+      rule: "PathPrefix(`/api`)"
+      priority: 19
+      entryPoints: [web]
+      service: indisponible
+    keycloak-secours:
+      rule: "PathPrefix(`/auth`)"
+      priority: 19
+      entryPoints: [web]
+      service: indisponible
+
+  services:
+    # Aucun serveur : Traefik répond 503 Service Unavailable.
+    indisponible:
+      loadBalancer:
+        servers: []

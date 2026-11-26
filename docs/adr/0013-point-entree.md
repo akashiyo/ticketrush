@@ -31,6 +31,7 @@ Scénarios concernés :
 - **la limitation de débit par adresse IP** sur l'entrée de la file, plus stricte, et sur l'API, plus souple (première couche de l'ADR 012) ;
 - **la transmission des en-têtes de trace** OpenTelemetry vers les services (ADR 017) ;
 - **la découverte automatique des services** grâce aux étiquettes Docker : ajouter un service ne demande pas de modifier un fichier de configuration central.
+- **des routes de secours** (ajout du 26/11/2026, scénarios D-1, D-3) : quand un service est arrêté, Traefik retire ses routes, et ses requêtes tomberaient sur une route plus générale (404 du Cœur, page HTML de l'application). Chaque route du parcours d'achat a donc une jumelle de priorité inférieure, dans `infra/traefik/secours.yml`, qui répond **503**. L'acheteur reçoit une erreur honnête, et les SLO mesurés au point d'entrée voient la panne (ADR 018).
 
 **Traefik ne sert pas lui-même les fichiers de l'application** : c'est un proxy, pas un serveur de fichiers. Un petit conteneur **Nginx** s'en charge, avec les règles de cache de l'ADR 015 (fichiers avec empreinte mis en cache un an, `index.html` jamais).
 

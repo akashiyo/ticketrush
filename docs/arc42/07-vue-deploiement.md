@@ -27,7 +27,7 @@ répond à ces trois besoins sur une seule machine, sans compte ni service payan
 
 ```
 docker compose up -d     # démarre tout, dans l'ordre des contrôles de santé
-docker compose ps        # tous les services « healthy », keycloak-db-init « Exited (0) »
+docker compose ps        # tous « healthy » ; keycloak-db-init et lecture-grafana-init « Exited (0) »
 docker compose down      # arrêt ; « -v » efface aussi les données
 ```
 
@@ -50,6 +50,7 @@ développement et le diagnostic.
 | `redpanda`             | Broker d'événements         | `redpanda:v25.2.10`                 | 1 · 1,5 Go              | 19092, 18081, 9644       | volume `redpanda-data`   |
 | `meilisearch`          | Moteur de recherche         | `getmeili/meilisearch:v1.15`        | 1 · 512 Mo              | 7700                     | volume `meilisearch-data` |
 | `observabilite`        | Collecteur + Observabilité  | `grafana/otel-lgtm:0.41.1`          | 2 · 2 Go                | **3000** (Grafana), 4317, 4318 | — (dette D-008)    |
+| `lecture-grafana-init` | — (tâche ponctuelle)        | `postgres:18-alpine`                | —                       | —                        | rôle PostgreSQL en lecture seule de Grafana |
 | _à venir_ `analytique` | Analytique                  | construite                          | —                       | —                        | — (agrégats dans Redis)  |
 
 **Total des limites** : 14 CPU et environ 8,4 Go de mémoire au maximum. Ce sont des plafonds, pas une
@@ -65,7 +66,12 @@ Chaque service a un **contrôle de santé**, et ne démarre qu'une fois ses dép
 2. `keycloak-db-init` (crée la base de Keycloak, puis s'arrête), puis `keycloak` ;
 3. `file-attente` (après Redis) et `coeur` (après PostgreSQL, Redis, Redpanda et Meilisearch ;
    il applique ses migrations et charge la vente de démonstration de 5 000 places) ;
-4. `faux-paiement`, `web` et `traefik`, sans dépendance.
+4. `faux-paiement`, `web` et `traefik`, sans dépendance ;
+5. `lecture-grafana-init` (après le Cœur, dont les migrations créent les tables lues) : rôle en
+   lecture seule pour le contrôle continu de la survente dans Grafana (`docs/exploitation/slo.md`).
+
+Traefik charge aussi `infra/traefik/secours.yml` : quand un service est arrêté, ses routes
+répondent 503 au lieu d'être capturées par une route plus générale (ADR 013).
 
 Aucun service ne dépend de `observabilite` : s'il est arrêté, la vente continue et la télémétrie est
 abandonnée (ADR 017, vérifié le 25/11/2026 : 10 requêtes sur 10 servies, observabilité arrêtée).

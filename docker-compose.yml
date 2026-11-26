@@ -193,6 +193,7 @@ services:
       traefik.enable: "true"
       traefik.http.services.keycloak.loadbalancer.server.port: "8080"
       traefik.http.routers.keycloak.rule: PathPrefix(`/auth`)
+      traefik.http.routers.keycloak.priority: "20"
       traefik.http.routers.keycloak.entrypoints: web
       traefik.http.routers.keycloak.service: keycloak
     volumes:
@@ -288,6 +289,7 @@ services:
       traefik.http.middlewares.file-prefixe.stripprefix.prefixes: /api/file
       # Suivi de la position et clé publique : limite large par adresse IP.
       traefik.http.routers.file.rule: PathPrefix(`/api/file`)
+      traefik.http.routers.file.priority: "50"
       traefik.http.routers.file.entrypoints: web
       traefik.http.routers.file.service: file
       traefik.http.routers.file.middlewares: file-debit,file-prefixe
@@ -370,12 +372,31 @@ services:
       traefik.http.services.coeur.loadbalancer.server.port: "3000"
       traefik.http.middlewares.coeur-prefixe.stripprefix.prefixes: /api
       traefik.http.routers.coeur.rule: PathPrefix(`/api`)
+      traefik.http.routers.coeur.priority: "20"
       traefik.http.routers.coeur.entrypoints: web
       traefik.http.routers.coeur.service: coeur
       traefik.http.routers.coeur.middlewares: coeur-debit,coeur-prefixe
       # Limite souple par adresse IP : la file règle déjà le débit des acheteurs (ADR 008, 012).
       traefik.http.middlewares.coeur-debit.ratelimit.average: "20"
       traefik.http.middlewares.coeur-debit.ratelimit.burst: "40"
+      # Routeurs dédiés aux routes qui ont un SLO (ADR 018) : même service et mêmes middlewares
+      # que « coeur », seul le nom change, pour mesurer chaque SLO au point d'entrée, là où
+      # l'acheteur ressent une panne (502 compris).
+      traefik.http.routers.coeur-reservation.rule: Method(`POST`) && PathRegexp(`^/api/evenements/[^/]+/blocages$$`)
+      traefik.http.routers.coeur-reservation.priority: "60"
+      traefik.http.routers.coeur-reservation.entrypoints: web
+      traefik.http.routers.coeur-reservation.service: coeur
+      traefik.http.routers.coeur-reservation.middlewares: coeur-debit,coeur-prefixe
+      traefik.http.routers.coeur-paiement.rule: Method(`POST`) && PathRegexp(`^/api/reservations/[^/]+/paiement$$`)
+      traefik.http.routers.coeur-paiement.priority: "60"
+      traefik.http.routers.coeur-paiement.entrypoints: web
+      traefik.http.routers.coeur-paiement.service: coeur
+      traefik.http.routers.coeur-paiement.middlewares: coeur-debit,coeur-prefixe
+      traefik.http.routers.coeur-recherche.rule: Method(`GET`) && Path(`/api/catalogue/recherche`)
+      traefik.http.routers.coeur-recherche.priority: "60"
+      traefik.http.routers.coeur-recherche.entrypoints: web
+      traefik.http.routers.coeur-recherche.service: coeur
+      traefik.http.routers.coeur-recherche.middlewares: coeur-debit,coeur-prefixe
     healthcheck:
       test:
         - CMD
@@ -426,6 +447,9 @@ services:
     command:
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
+      # Routes de secours : 503 quand un service est arrêté, au lieu d'une réponse trompeuse
+      # d'une route plus générale (infra/traefik/secours.yml, ADR 013, 018).
+      - --providers.file.filename=/etc/traefik/secours.yml
       - --entrypoints.web.address=:80
       - --ping=true
       - --log.level=INFO
@@ -436,12 +460,17 @@ services:
       - --tracing.serviceName=traefik
       - --metrics.otlp=true
       - --metrics.otlp.http.endpoint=http://observabilite:4318/v1/metrics
+      # Seaux de durée alignés sur les seuils des SLO : 0,3 s, 0,5 s et 2 s (ADR 018).
+      - --metrics.otlp.explicitBoundaries=0.005,0.01,0.025,0.05,0.1,0.2,0.3,0.5,0.75,1,2,3,5,10
+      # Une série par routeur : chaque SLO se mesure sur ses routes (ADR 018).
+      - --metrics.otlp.addRoutersLabels=true
       - --metrics.otlp.pushInterval=10s
     ports:
       # 8000 côté machine : le port 80 est souvent déjà pris.
       - "127.0.0.1:${TRAEFIK_PORT:-8000}:80"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./infra/traefik/secours.yml:/etc/traefik/secours.yml:ro
     healthcheck:
       test: ["CMD", "traefik", "healthcheck", "--ping"]
       interval: 10s
@@ -461,6 +490,11 @@ services:
   observabilite:
     image: grafana/otel-lgtm:0.41.1
     restart: unless-stopped
+    environment:
+      # Lecture seule de PostgreSQL pour l'invariant « zéro survente » (sources-de-donnees.yaml).
+      GRAFANA_PG_ROLE: ${GRAFANA_PG_ROLE:-grafana_lecture}
+      GRAFANA_PG_MOT_DE_PASSE: ${GRAFANA_PG_MOT_DE_PASSE:-grafana_lecture_dev}
+      GRAFANA_PG_BASE: ${POSTGRES_DB:-ticketrush}
     ports:
       - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
       # OTLP pour les services lancés hors Docker (pnpm dev) : gRPC 4317, HTTP 4318.
@@ -470,6 +504,7 @@ services:
       # Tableaux de bord versionnés dans le dépôt, chargés au démarrage (ADR 017).
       - ./infra/observabilite/grafana/tableaux-de-bord.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/ticketrush.yaml:ro
       - ./infra/observabilite/grafana/tableaux-de-bord:/otel-lgtm/ticketrush-dashboards:ro
+      - ./infra/observabilite/grafana/sources-de-donnees.yaml:/otel-lgtm/grafana/conf/provisioning/datasources/ticketrush.yaml:ro
     healthcheck:
       # Prêt quand le Collector reçoit et que Grafana répond.
       test:
@@ -484,6 +519,34 @@ services:
         limits:
           cpus: "2"
           memory: 2g
+
+  # Crée le rôle PostgreSQL en lecture seule de Grafana (ADR 017, 018), puis s'arrête.
+  # Après le Cœur : ses migrations créent les tables lues. Idempotent.
+  lecture-grafana-init:
+    image: postgres:18-alpine
+    restart: "no"
+    depends_on:
+      coeur:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGDATABASE: ${POSTGRES_DB:-ticketrush}
+      PGUSER: ${POSTGRES_USER:-ticketrush}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-ticketrush_dev}
+    command:
+      - psql
+      - -v
+      - ON_ERROR_STOP=1
+      - -v
+      - role=${GRAFANA_PG_ROLE:-grafana_lecture}
+      - -v
+      - mdp=${GRAFANA_PG_MOT_DE_PASSE:-grafana_lecture_dev}
+      - -v
+      - base=${POSTGRES_DB:-ticketrush}
+      - -f
+      - /init/init-lecture-grafana.sql
+    volumes:
+      - ./infra/postgres/init-lecture-grafana.sql:/init/init-lecture-grafana.sql:ro
 
 volumes:
   postgres-data:

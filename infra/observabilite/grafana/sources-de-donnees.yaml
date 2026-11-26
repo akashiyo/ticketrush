@@ -1,0 +1,22 @@
+# Source de données PostgreSQL de Grafana, en lecture seule (ADR 017, 018) : contrôle continu
+# de l'invariant « zéro survente » (ADR 003) et état du stock de la vente. Le rôle et ses
+# droits minimaux sont créés par infra/postgres/init-lecture-grafana.sql.
+# Prometheus, Tempo et Loki sont déjà fournis par l'image grafana/otel-lgtm.
+apiVersion: 1
+
+datasources:
+  - name: PostgreSQL — ventes (lecture seule)
+    uid: ticketrush-postgres
+    type: grafana-postgresql-datasource
+    access: proxy
+    url: postgres:5432
+    user: ${GRAFANA_PG_ROLE}
+    editable: false
+    jsonData:
+      database: ${GRAFANA_PG_BASE}
+      sslmode: disable
+      postgresVersion: 1500
+      maxOpenConns: 2
+      maxIdleConns: 1
+    secureJsonData:
+      password: ${GRAFANA_PG_MOT_DE_PASSE}
