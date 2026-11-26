@@ -12,7 +12,7 @@
 | 4   | Stratégie de solution                         | —                                                          | À écrire    |
 | 5   | Vues de blocs (C4 conteneurs, composants)     | —                                                          | Jalon 2     |
 | 6   | Vues d'exécution (scénarios clés)             | —                                                          | Jalon 2     |
-| 7   | Vue de déploiement                            | —                                                          | Jalon 2 (P2) |
+| 7   | Vue de déploiement                            | [07-vue-deploiement.md](07-vue-deploiement.md)             | Brouillon (P2) : local livré, production cible |
 | 8   | Concepts transverses                          | —                                                          | À écrire    |
 | 9   | Décisions                                     | [../adr/liste-adr.md](../adr/liste-adr.md)                 | 22 ADR      |
 | 10  | Exigences de qualité : arbre d'utilité, scénarios | [10-exigences-qualite.md](10-exigences-qualite.md)     | Brouillon   |

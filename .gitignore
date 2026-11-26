@@ -17,6 +17,10 @@ coverage/
 npm-debug.log*
 pnpm-debug.log*
 
+# Fichiers générés par la visionneuse Structurizr (la source est workspace.dsl)
+docs/architecture/.structurizr/
+docs/architecture/workspace.json
+
 # Consignes personnelles pour Claude Code (chacun la sienne : P1 ou P2)
 CLAUDE.local.md
 
