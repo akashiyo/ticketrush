@@ -91,10 +91,13 @@ jobs:
       - name: Récupérer le code
         uses: actions/checkout@v5
 
+      # Node seul suffit (aucune dépendance) : pas de cache pnpm, que setup-node activerait
+      # sinon d'après le champ « packageManager » du package.json, sans pnpm installé.
       - name: Installer Node.js (version de .node-version)
         uses: actions/setup-node@v5
         with:
           node-version-file: .node-version
+          package-manager-cache: false
 
       # Jetons pré-générés : un compte par acheteur virtuel, Keycloak hors du chemin critique
       # (ADR 010). Valeurs de test, jamais versionnées.
@@ -115,11 +118,13 @@ jobs:
       # Seuils de mise-en-vente.js : P-1 et P-5 (entrée, position < 2 s), P-2 (blocage < 500 ms),
       # D-3 (aucune erreur serveur), au moins un acheteur admis.
       - name: Test de charge réduit (seuils k6)
+        id: charge
         run: k6 run tests/charge/mise-en-vente.js
 
-      # C-1 : la preuve de zéro survente, sur la base, même si un seuil k6 a échoué.
+      # C-1 : la preuve de zéro survente, sur la base, même si un seuil k6 a échoué ; mais
+      # seulement si le test a tourné (sinon la plateforme n'est pas démarrée).
       - name: Contrôle de zéro survente
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.charge.outcome != 'skipped' }}
         run: tests/charge/verifier-survente.sh
 
       - name: Journaux des services en cas d'échec
