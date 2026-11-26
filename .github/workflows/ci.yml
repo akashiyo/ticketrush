@@ -1,11 +1,13 @@
 # Intégration continue de TicketRush (sujet : « Gouvernance : intégration continue »,
 # rendu : « CI au vert »). Voir ADR 021.
 #
-# Étapes : installation, formatage, lint, types, fitness, build, tests.
+# Deux jobs en parallèle :
+#   - verifications : installation, formatage, lint, types, build, fitness 1 et 2, tests ;
+#   - performance   : fitness 3, test de charge réduit sur la plateforme démarrée.
 # Fonctions de fitness (sujet : « au moins 3 fonctions de fitness automatisées ») :
-#   1. règles de dépendances (dependency-cruiser)       : branchée
-#   2. compatibilité des contrats (oasdiff)             : à venir
-#   3. seuil de performance (k6, test de charge réduit) : à venir
+#   1. règles de dépendances (dependency-cruiser)                : pnpm fitness:dependances
+#   2. compatibilité des contrats (oasdiff + AsyncAPI)           : pnpm fitness:contrats
+#   3. seuil de performance (k6, 2 000 acheteurs, zéro survente) : job « performance »
 
 name: CI
 
@@ -24,13 +26,16 @@ permissions:
 
 jobs:
   verifications:
-    name: Installation, lint, types, build, tests
+    name: Installation, lint, types, build, fitness 1 et 2, tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
+      # Historique complet : la fitness 2 compare les contrats à ceux de la branche principale.
       - name: Récupérer le code
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       # La version de pnpm est lue dans le champ « packageManager » du package.json.
       - name: Installer pnpm
@@ -63,5 +68,60 @@ jobs:
       - name: "Fitness : règles de dépendances"
         run: pnpm fitness:dependances
 
+      # Fitness 2 : aucun contrat de packages/contrats ne casse un consommateur, par rapport à
+      # la branche principale (OpenAPI : oasdiff ; AsyncAPI : comparateur de tests/fitness).
+      - name: "Fitness : compatibilité des contrats"
+        run: pnpm fitness:contrats
+
+      # Les tests comprennent la conformité des contrats OpenAPI au code des services.
       - name: Tests
         run: pnpm test
+
+  performance:
+    name: "Fitness : seuil de performance (test de charge réduit)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Version réduite du test du sujet (ADR 021) ; le test complet est lancé avant chaque jalon.
+      ACHETEURS: "2000"
+      BASE_FILE: http://localhost:3001
+      BASE_COEUR: http://localhost:3002
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v5
+
+      - name: Installer Node.js (version de .node-version)
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+
+      # Jetons pré-générés : un compte par acheteur virtuel, Keycloak hors du chemin critique
+      # (ADR 010). Valeurs de test, jamais versionnées.
+      - name: Générer les jetons de l'identité de test
+        run: node tests/charge/identite-de-test/generer.mjs "$ACHETEURS"
+
+      # Seulement ce que traverse le parcours d'achat : ni Traefik (accès direct, voir
+      # tests/charge/README.md), ni l'application web, ni l'observabilité.
+      - name: Démarrer la plateforme (surcouche de charge)
+        run: >-
+          docker compose -f docker-compose.yml -f docker-compose.charge.yml up -d --build --wait
+          postgres redis redpanda meilisearch keycloak coeur file-attente faux-paiement
+          identite-de-test
+
+      - name: Installer k6
+        uses: grafana/setup-k6-action@v1
+
+      # Seuils de mise-en-vente.js : P-1 et P-5 (entrée, position < 2 s), P-2 (blocage < 500 ms),
+      # D-3 (aucune erreur serveur), au moins un acheteur admis.
+      - name: Test de charge réduit (seuils k6)
+        run: k6 run tests/charge/mise-en-vente.js
+
+      # C-1 : la preuve de zéro survente, sur la base, même si un seuil k6 a échoué.
+      - name: Contrôle de zéro survente
+        if: ${{ !cancelled() }}
+        run: tests/charge/verifier-survente.sh
+
+      - name: Journaux des services en cas d'échec
+        if: ${{ failure() }}
+        run: docker compose logs --tail 200 coeur file-attente faux-paiement

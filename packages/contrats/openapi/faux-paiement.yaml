@@ -1,0 +1,193 @@
+openapi: 3.1.0
+
+info:
+  title: TicketRush — faux prestataire de paiement
+  version: 1.0.0
+  description: |
+    Contrat P2 → P1 (ADR 005) : API du prestataire de paiement simulé, appelée par le Cœur
+    derrière son port PasserelleDePaiement. Fournisseur : P2. Toute modification est relue par P1
+    et vérifiée en CI (fonction de fitness « compatibilité des contrats », ADR 021).
+
+    Évolution compatible uniquement : ajouter une route, un champ de réponse ou un paramètre
+    optionnel. Jamais supprimer ni renommer, jamais rendre obligatoire ce qui ne l'était pas.
+
+    Le prestataire est simulé : `moyenDePaiement.jeton = "carte-refusee"` provoque un refus, tout
+    autre jeton est accepté. Aucune donnée bancaire.
+
+servers:
+  - url: http://faux-paiement:3000
+    description: Depuis les autres conteneurs du Compose
+  - url: http://localhost:3003
+    description: Depuis la machine (développement)
+
+security:
+  - jetonDeService: []
+
+paths:
+  /paiements:
+    post:
+      operationId: creerPaiement
+      summary: Crée un paiement, de façon idempotente
+      description: |
+        Avec la même `Idempotency-Key` et la même demande, renvoie le paiement d'origine avec
+        l'en-tête `Idempotent-Replayed: true` : jamais de double débit. Avec la même clé et une
+        demande différente : 422.
+      parameters:
+        - $ref: "#/components/parameters/CleIdempotence"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DemandePaiement"
+      responses:
+        "201":
+          description: Paiement créé, ou paiement d'origine rejoué
+          headers:
+            Idempotent-Replayed:
+              description: Présent et égal à « true » quand la réponse est rejouée
+              schema:
+                type: string
+                enum: ["true"]
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Paiement"
+        "400":
+          $ref: "#/components/responses/Erreur"
+        "401":
+          $ref: "#/components/responses/Erreur"
+        "422":
+          $ref: "#/components/responses/Erreur"
+
+  /paiements/{id}:
+    get:
+      operationId: lirePaiement
+      summary: Relit un paiement
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Le paiement
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Paiement"
+        "401":
+          $ref: "#/components/responses/Erreur"
+        "404":
+          $ref: "#/components/responses/Erreur"
+
+  /sante:
+    get:
+      operationId: sante
+      summary: Contrôle de santé du Compose
+      security: []
+      responses:
+        "200":
+          description: Service en marche
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [statut]
+                properties:
+                  statut:
+                    type: string
+                    const: ok
+
+components:
+  securitySchemes:
+    jetonDeService:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Jeton Keycloak du client ticketrush-coeur (client_credentials), audience ticketrush-faux-paiement (ADR 010).
+
+  parameters:
+    CleIdempotence:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Clé unique par paiement, rejouée telle quelle lors d'une nouvelle tentative (ADR 005)
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 255
+
+  schemas:
+    DemandePaiement:
+      type: object
+      required: [reference, montantCentimes, devise, moyenDePaiement]
+      properties:
+        reference:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Référence de l'appelant, par exemple l'identifiant de la réservation
+        montantCentimes:
+          type: integer
+          minimum: 1
+          maximum: 10000000
+        devise:
+          type: string
+          enum: [EUR]
+        moyenDePaiement:
+          type: object
+          required: [jeton]
+          properties:
+            jeton:
+              type: string
+              minLength: 1
+              maxLength: 100
+              description: Jeton de test ; « carte-refusee » provoque un refus
+
+    Paiement:
+      type: object
+      required: [id, reference, montantCentimes, devise, statut, motifRefus, creeLe]
+      properties:
+        id:
+          type: string
+          format: uuid
+        reference:
+          type: string
+        montantCentimes:
+          type: integer
+        devise:
+          type: string
+          enum: [EUR]
+        statut:
+          type: string
+          enum: [accepte, refuse]
+        motifRefus:
+          type: [string, "null"]
+        creeLe:
+          type: string
+          format: date-time
+
+  responses:
+    Erreur:
+      description: Erreur au format NestJS
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [statusCode, message]
+            properties:
+              statusCode:
+                type: integer
+              message: {}
+              erreurs:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    champ:
+                      type: string
+                    message:
+                      type: string

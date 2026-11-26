@@ -22,22 +22,19 @@ Scénarios concernés :
 
 ## Décision
 
-**L'intégration continue sur GitHub Actions**, à chaque pull request et sur la branche principale, dans cet ordre :
-1. lint et vérification des types TypeScript ;
-2. tests unitaires (Vitest) ;
-3. tests d'intégration contre de vrais PostgreSQL, Redis et Redpanda (Testcontainers), y compris le test d'isolation multi-tenant (S-3, ADR 016) ;
-4. les trois fonctions de fitness ci-dessous ;
-5. un test de démarrage : `docker compose up`, puis vérification que chaque service répond (M-2).
+**L'intégration continue sur GitHub Actions** (`.github/workflows/ci.yml`), à chaque poussée et à chaque pull request, en deux jobs parallèles :
+- **verifications** : formatage, lint et vérification des types TypeScript ; build ; fonctions de fitness 1 et 2 ; tests unitaires et d'intégration contre de vrais PostgreSQL, Redis et Redpanda (Testcontainers), y compris le test d'isolation multi-tenant (S-3, ADR 016) et la conformité des contrats OpenAPI au code ;
+- **performance** : démarrage de la plateforme par Docker Compose, chaque service attendu sain (M-2), puis fonction de fitness 3.
 
-Une pull request ne peut pas être fusionnée si une étape échoue.
+On ne fusionne dans la branche principale qu'un commit dont la CI est verte.
 
 **Les trois fonctions de fitness :**
 
 | Fonction | Outil | Ce qui fait échouer la CI |
 |---|---|---|
 | **1. Règles de dépendances** | dependency-cruiser | Une des 9 règles ci-dessous est enfreinte |
-| **2. Compatibilité des contrats** | oasdiff pour les API OpenAPI, plus une comparaison des schémas AsyncAPI des événements | Une modification casse un client existant : champ supprimé ou renommé, champ obligatoire ajouté, type changé. Comparaison faite avec la version de la branche principale |
-| **3. Seuil de performance** | Les seuils (`thresholds`) de k6 | Un test de charge réduit dépasse ses seuils : p99 de la réservation au-delà de 500 ms, taux d'erreur au-delà de 1 %, **ou au moins une survente détectée** |
+| **2. Compatibilité des contrats** | oasdiff pour les API OpenAPI, plus une comparaison des schémas AsyncAPI des événements (`tests/fitness`) | Une modification casse un client existant : champ supprimé ou renommé, champ obligatoire ajouté, type changé. Comparaison faite avec la version de la branche principale |
+| **3. Seuil de performance** | Les seuils (`thresholds`) de k6, puis le contrôle SQL de survente | Un test de charge réduit dépasse ses seuils : entrée et position au-delà de 2 s au p99 (P-1), blocage au-delà de 500 ms au p99 (P-2), une erreur serveur sur le parcours (D-3), aucun acheteur admis, **ou au moins une survente détectée** (C-1) |
 
 **Les règles de la fonction 1** (fichier `.dependency-cruiser.cjs`, commande `pnpm fitness:dependances`) :
 
@@ -53,7 +50,11 @@ Une pull request ne peut pas être fusionnée si une étape échoue.
 | `contrats-autonomes` | `packages/contrats` importe une application ou un service | Contrats comme base commune (ADR 005) |
 | `pas-d-import-introuvable` | Un import qui ne se résout pas | Aucune dépendance cachée ou non déclarée |
 
-**À propos de la fonction 3 :** le test complet, 50 000 acheteurs pour 5 000 places, demande plus de ressources qu'une machine d'intégration continue. La CI lance donc une **version réduite** à chaque pull request, par exemple 2 000 acheteurs pour 200 places, avec les mêmes seuils et la même vérification de survente. Le test complet est lancé avant chaque jalon. Son rapport est versionné dans `docs/rapports/`.
+**La fonction 2** (commande `pnpm fitness:contrats`) compare chaque contrat de `packages/contrats` à sa version sur la branche principale (sur la branche principale elle-même : au commit précédent). Un contrat nouveau est une première version, sans comparaison. Les contrats OpenAPI des services de P2 (faux prestataire de paiement, File d'attente) sont accompagnés d'un test qui vérifie qu'ils décrivent exactement les routes du code : un contrat qui ment rendrait la comparaison inutile.
+
+**À propos de la fonction 3 :** le test complet, 50 000 acheteurs pour 5 000 places, demande plus de ressources qu'une machine d'intégration continue. La CI lance donc une **version réduite** à chaque poussée : **2 000 acheteurs arrivant en une minute** (débit constant, comme P-1), sur la vente de démonstration de 5 000 places, avec les mêmes seuils et la même vérification de survente. Le test complet est lancé avant chaque jalon. Son rapport est versionné dans `docs/rapports/`.
+
+Conditions du test réduit, inscrites au registre de dette : vente de 5 000 places et non 200 (D-007), jetons pré-générés par une identité de test au lieu de Keycloak (D-023, cohérent avec l'ADR 010 : Keycloak n'est pas appelé au pic), accès direct à la File et au Cœur sans Traefik (D-024), défis ALTCHA désactivés (D-010).
 
 **Le registre de dette** est un fichier `docs/dette-technique.md`. Chaque entrée contient :
 - la description de la dette ;

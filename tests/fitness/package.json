@@ -1,0 +1,15 @@
+{
+  "name": "@ticketrush/fitness",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Fonctions de fitness de la CI (ADR 021) : compatibilité des contrats OpenAPI et AsyncAPI",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.3",
+    "yaml": "^2.9.1"
+  }
+}

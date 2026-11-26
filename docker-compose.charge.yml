@@ -1,0 +1,35 @@
+# Surcouche du Compose pour le TEST DE CHARGE uniquement (ADR 021, fonction de fitness n° 3).
+#
+#   node tests/charge/identite-de-test/generer.mjs 2000
+#   docker compose -f docker-compose.yml -f docker-compose.charge.yml up -d --wait
+#
+# Les acheteurs virtuels utilisent des jetons pré-générés et signés par une identité de test
+# (tests/charge/identite-de-test) : au pic, Keycloak n'est pas appelé (ADR 010), et créer des
+# milliers de comptes avant chaque test serait sans rapport avec ce qu'on mesure. Keycloak reste
+# utilisé pour le jeton de service du Cœur vers le faux prestataire de paiement.
+# Écart assumé, inscrit au registre de dette (D-023, D-024 et D-010). Jamais pour une démonstration.
+
+services:
+  # Sert la clé publique des jetons de test (sortie/jwks.json).
+  identite-de-test:
+    image: nginx:alpine
+    restart: unless-stopped
+    volumes:
+      - ./tests/charge/identite-de-test/sortie/jwks.json:/usr/share/nginx/html/jwks.json:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/jwks.json"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  file-attente:
+    environment:
+      AUTH_EMETTEUR: http://identite-de-test/charge
+      AUTH_JWKS_URL: http://identite-de-test/jwks.json
+      # k6 ne résout pas les défis ALTCHA (dette D-010).
+      ALTCHA_ACTIF: "false"
+
+  coeur:
+    environment:
+      AUTH_EMETTEUR: http://identite-de-test/charge
+      AUTH_JWKS_URL: http://identite-de-test/jwks.json

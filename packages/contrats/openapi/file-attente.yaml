@@ -1,0 +1,271 @@
+openapi: 3.1.0
+
+info:
+  title: TicketRush — file d'attente virtuelle
+  version: 1.0.0
+  description: |
+    API de la File d'attente (ADR 008, 009, 011, 012). Fournisseur : P2. Consommateurs :
+    l'application web (salle d'attente), le test de charge, et le Cœur, qui lit la clé publique
+    des jetons d'admission (`/.well-known/jwks.json`, contrat P2 → P1). Toute modification est
+    vérifiée en CI (fonction de fitness « compatibilité des contrats », ADR 021).
+
+    Évolution compatible uniquement : ajouter une route, un champ de réponse ou un paramètre
+    optionnel. Jamais supprimer ni renommer, jamais rendre obligatoire ce qui ne l'était pas.
+
+servers:
+  - url: http://localhost:8000/api/file
+    description: Navigateurs et clients, via Traefik (préfixe /api/file retiré)
+  - url: http://file-attente:3000
+    description: Depuis les autres conteneurs du Compose
+
+security:
+  - jetonKeycloak: []
+
+paths:
+  /files/{evenementId}/vente:
+    put:
+      operationId: configurerVente
+      summary: Configure l'ouverture et le débit d'admission d'une vente
+      description: Provisoire (dette D-014) ; sera alimenté par l'événement EvenementPublie du Cœur. Rôle organisateur-admin.
+      parameters:
+        - $ref: "#/components/parameters/EvenementId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ouvertureLe, debitParSeconde]
+              properties:
+                ouvertureLe:
+                  type: string
+                  format: date-time
+                debitParSeconde:
+                  type: integer
+                  minimum: 1
+                  maximum: 10000
+                  description: Acheteurs admis par seconde (ADR 008)
+      responses:
+        "204":
+          description: Vente configurée
+        "400":
+          $ref: "#/components/responses/Erreur"
+        "401":
+          $ref: "#/components/responses/Erreur"
+        "403":
+          $ref: "#/components/responses/Erreur"
+
+  /files/{evenementId}/defi:
+    get:
+      operationId: demanderDefi
+      summary: Défi anti-robots ALTCHA à résoudre avant d'entrer (ADR 012)
+      parameters:
+        - $ref: "#/components/parameters/EvenementId"
+      responses:
+        "200":
+          description: Défi de preuve de travail (format ALTCHA)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [parameters, signature]
+                properties:
+                  parameters:
+                    type: object
+                    required: [algorithm, nonce, salt]
+                    properties:
+                      algorithm:
+                        type: string
+                      nonce:
+                        type: string
+                      salt:
+                        type: string
+                  signature:
+                    type: string
+        "401":
+          $ref: "#/components/responses/Erreur"
+        "403":
+          $ref: "#/components/responses/Erreur"
+
+  /files/{evenementId}/entrer:
+    post:
+      operationId: entrer
+      summary: Entre dans la file ; une seule position par compte (idempotent)
+      parameters:
+        - $ref: "#/components/parameters/EvenementId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                altcha:
+                  type: string
+                  description: Défi résolu, en base64 (format du widget ALTCHA). Obligatoire si la protection est active.
+      responses:
+        "200":
+          description: État de l'acheteur dans la file
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EtatAcheteur"
+        "400":
+          $ref: "#/components/responses/Erreur"
+        "401":
+          $ref: "#/components/responses/Erreur"
+        "403":
+          $ref: "#/components/responses/Erreur"
+        "404":
+          $ref: "#/components/responses/Erreur"
+
+  /files/{evenementId}/position:
+    get:
+      operationId: consulterPosition
+      summary: Position, attente estimée et délai avant le prochain appel (ADR 009)
+      parameters:
+        - $ref: "#/components/parameters/EvenementId"
+      responses:
+        "200":
+          description: État de l'acheteur ; une fois admis, son jeton d'accès à la vente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EtatAcheteur"
+        "401":
+          $ref: "#/components/responses/Erreur"
+        "403":
+          $ref: "#/components/responses/Erreur"
+        "404":
+          $ref: "#/components/responses/Erreur"
+
+  /.well-known/jwks.json:
+    get:
+      operationId: clesPubliques
+      summary: Clé publique des jetons d'admission (ES256), lue par le Cœur (ADR 011)
+      security: []
+      responses:
+        "200":
+          description: Jeu de clés JWKS
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [keys]
+                properties:
+                  keys:
+                    type: array
+                    items:
+                      type: object
+                      required: [kty, crv, x, y, kid, alg, use]
+                      properties:
+                        kty:
+                          type: string
+                          const: EC
+                        crv:
+                          type: string
+                          const: P-256
+                        x:
+                          type: string
+                        y:
+                          type: string
+                        kid:
+                          type: string
+                        alg:
+                          type: string
+                          const: ES256
+                        use:
+                          type: string
+                          const: sig
+
+  /sante:
+    get:
+      operationId: sante
+      summary: Contrôle de santé du Compose
+      security: []
+      responses:
+        "200":
+          description: Service en marche
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [statut]
+                properties:
+                  statut:
+                    type: string
+                    const: ok
+
+components:
+  securitySchemes:
+    jetonKeycloak:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Jeton Keycloak de l'utilisateur, audience ticketrush-api ; rôle acheteur (organisateur-admin pour /vente), ADR 010.
+
+  parameters:
+    EvenementId:
+      name: evenementId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 100
+
+  schemas:
+    EtatAcheteur:
+      oneOf:
+        - type: object
+          required: [statut, position, attenteEstimeeSec, prochainAppelDansSec, ouvertureLe]
+          properties:
+            statut:
+              type: string
+              const: en_attente
+            position:
+              type: integer
+              minimum: 1
+              description: 1 = le prochain admis
+            attenteEstimeeSec:
+              type: integer
+              minimum: 0
+              description: Estimation = position ÷ débit d'admission (ADR 008)
+            prochainAppelDansSec:
+              type: integer
+              minimum: 1
+              description: Délai fixé par le serveur avant le prochain appel (ADR 009)
+            ouvertureLe:
+              type: string
+              format: date-time
+        - type: object
+          required: [statut, jetonAcces, expireLe]
+          properties:
+            statut:
+              type: string
+              const: admis
+            jetonAcces:
+              type: string
+              description: JWT ES256 signé par la File, à présenter au Cœur dans l'en-tête Jeton-Acces (ADR 011)
+            expireLe:
+              type: string
+              format: date-time
+        - type: object
+          required: [statut]
+          properties:
+            statut:
+              type: string
+              const: absent
+
+  responses:
+    Erreur:
+      description: Erreur au format NestJS
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [statusCode, message]
+            properties:
+              statusCode:
+                type: integer
+              message: {}

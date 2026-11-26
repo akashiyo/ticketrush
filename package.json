@@ -14,7 +14,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "pnpm -r --if-present test",
-    "fitness:dependances": "depcruise apps services packages --config .dependency-cruiser.cjs"
+    "fitness:dependances": "depcruise apps services packages --config .dependency-cruiser.cjs",
+    "fitness:contrats": "node tests/fitness/src/verifier-contrats.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
